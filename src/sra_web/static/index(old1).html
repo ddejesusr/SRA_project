@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SRA · Panel Industrial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════ */
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #1c2330;
+  --border:   #2d333b;
+  --text:     #e6edf3;
+  --dim:      #8b949e;
+  --accent:   #2f81f7;
+  --ok:       #3fb950;
+  --warn:     #d29922;
+  --err:      #f85149;
+  --purple:   #a371f7;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --sans: 'Inter', system-ui, sans-serif;
+
+  /* Fuse box physical colors */
+  --c-blue:  #2f81f7;
+  --c-red:   #f85149;
+  --c-black: #484f58;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  height: 100vh;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ═══════════════════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════════════════ */
+.app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: 60px 1fr;
+  height: 100vh;
+}
+
+/* ═══════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════ */
+header {
+  grid-column: 1 / 3;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 20px;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--accent);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.conn-bar {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 11px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--dim);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--err);
+  flex-shrink: 0;
+}
+.dot.live { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.dot.warn { background: var(--warn); box-shadow: 0 0 5px var(--warn); }
+
+/* ═══════════════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════════════ */
+aside {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--dim);
+  font-size: 13px;
+  font-weight: 500;
+  transition: .15s;
+  user-select: none;
+}
+.nav-item i { width: 16px; text-align: center; }
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--accent); color: #fff; }
+
+.nav-sep {
+  margin-top: auto;
+  font-size: 11px;
+  color: var(--dim);
+  padding: 10px 14px;
+  font-family: var(--mono);
+  border-top: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════════
+   MAIN / PAGES
+═══════════════════════════════════════════════════ */
+main { overflow-y: auto; padding: 24px; }
+
+.page { display: none; animation: fade .2s; }
+.page.active { display: block; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
+
+h2 { font-size: 20px; margin-bottom: 4px; }
+.subtitle { color: var(--dim); margin-bottom: 20px; font-size: 13px; }
+
+/* ═══════════════════════════════════════════════════
+   GRID UTILITIES
+═══════════════════════════════════════════════════ */
+.grid { display: grid; gap: 16px; }
+.g2 { grid-template-columns: 1fr 1fr; }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+
+/* ═══════════════════════════════════════════════════
+   CARD
+═══════════════════════════════════════════════════ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+}
+.card h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--dim);
+  margin-bottom: 14px;
+  font-family: var(--mono);
+}
+
+/* ═══════════════════════════════════════════════════
+   SYSTEM STATE BADGE
+═══════════════════════════════════════════════════ */
+.state-box { display: flex; align-items: center; gap: 16px; }
+.state-badge {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 20px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  transition: .3s;
+}
+.state-IDLE       { color: var(--dim); }
+.state-LISTENING  { color: var(--accent); border-color: var(--accent); }
+.state-PARSING    { color: var(--purple); border-color: var(--purple); }
+.state-RESERVING  { color: var(--warn);   border-color: var(--warn); }
+.state-DELIVERING { color: var(--accent); border-color: var(--accent); }
+.state-COMPLETED  { color: var(--ok);     border-color: var(--ok); }
+.state-ERROR      { color: var(--err);    border-color: var(--err); }
+.state-desc { color: var(--dim); font-size: 13px; }
+
+/* ═══════════════════════════════════════════════════
+   ROBOT STATUS CARDS
+═══════════════════════════════════════════════════ */
+.robot {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  transition: .2s;
+}
+.robot.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.robot.error  { border-color: var(--err); }
+.robot-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.robot-head i { font-size: 18px; color: var(--accent); }
+.robot-name { font-weight: 600; font-size: 14px; }
+.robot-state {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.robot-detail { color: var(--dim); font-size: 12px; }
+
+/* ═══════════════════════════════════════════════════
+   ORDER TIMELINE
+═══════════════════════════════════════════════════ */
+.timeline { display: flex; flex-direction: column; gap: 0; }
+.tl-step { display: flex; gap: 14px; padding: 2px 0; }
+.tl-marker { display: flex; flex-direction: column; align-items: center; }
+.tl-icon {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--surface2); border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--dim); z-index: 1; transition: .3s;
+}
+.tl-line { width: 2px; flex: 1; background: var(--border); min-height: 16px; transition: .3s; }
+.tl-step.done   .tl-icon { background: var(--ok);     border-color: var(--ok);     color: #fff; }
+.tl-step.done   .tl-line { background: var(--ok); }
+.tl-step.active .tl-icon { background: var(--accent); border-color: var(--accent); color: #fff; animation: pulse 1.2s infinite; }
+.tl-step.failed .tl-icon { background: var(--err);    border-color: var(--err);    color: #fff; }
+.tl-body { padding-bottom: 14px; }
+.tl-title { font-weight: 600; font-size: 13px; }
+.tl-sub   { color: var(--dim); font-size: 12px; font-family: var(--mono); }
+.tl-time  { color: var(--dim); font-size: 11px; font-family: var(--mono); }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47,129,247,.5); }
+  50%       { box-shadow: 0 0 0 6px rgba(47,129,247,0); }
+}
+
+/* ═══════════════════════════════════════════════════
+   PIPELINE CHAIN
+═══════════════════════════════════════════════════ */
+.chain { display: flex; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+.chain-node { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.chain-circle {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--surface2); border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--dim); transition: .3s;
+}
+.chain-node.done   .chain-circle { background: var(--ok);     border-color: var(--ok);     color: #fff; }
+.chain-node.active .chain-circle { background: var(--accent); border-color: var(--accent); color: #fff; animation: pulse 1.2s infinite; }
+.chain-node.failed .chain-circle { background: var(--err);    border-color: var(--err);    color: #fff; }
+.chain-lbl { font-size: 10px; color: var(--dim); font-family: var(--mono); }
+.chain-arrow { flex: 1; height: 2px; background: var(--border); min-width: 20px; margin: 0 4px 22px; transition: .3s; }
+.chain-arrow.done { background: var(--ok); }
+
+/* Pipeline log entries */
+.pipe-log { display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; }
+.pipe-ev {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 11px 14px;
+}
+.pipe-ev.STT      { border-left-color: var(--accent); }
+.pipe-ev.PARSE    { border-left-color: var(--purple); }
+.pipe-ev.RESERVE  { border-left-color: var(--warn); }
+.pipe-ev.REJECT   { border-left-color: var(--err); }
+.pipe-ev.DELIVERY { border-left-color: var(--accent); }
+.pipe-ev.COMPLETE { border-left-color: var(--ok); }
+.pipe-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.pipe-tag {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 4px;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.pipe-time { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.pipe-text { font-size: 13px; margin-bottom: 6px; }
+.pipe-details { font-family: var(--mono); font-size: 12px; display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; }
+.pipe-details .k  { color: var(--dim); }
+.pipe-details .v.ok  { color: var(--ok); }
+.pipe-details .v.err { color: var(--err); }
+.pipe-details .v.warn { color: var(--warn); }
+
+/* ═══════════════════════════════════════════════════
+   STATS
+═══════════════════════════════════════════════════ */
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.stat { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+.stat .val { font-family: var(--mono); font-size: 28px; font-weight: 700; }
+.stat .lbl { color: var(--dim); font-size: 11px; margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+.stat.ok  .val { color: var(--ok); }
+.stat.err .val { color: var(--err); }
+.stat.tot .val { color: var(--accent); }
+
+/* Ring chart */
+.ring-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin-bottom: 20px; }
+.ring { position: relative; width: 160px; height: 160px; }
+.ring svg { transform: rotate(-90deg); }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring-center .num { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+.ring-center .lbl { color: var(--dim); font-size: 11px; text-transform: uppercase; }
+.legend { display: flex; flex-direction: column; gap: 10px; }
+.leg-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.leg-sw { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+/* Bar chart */
+.bars { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 10px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; }
+.bar { width: 100%; background: linear-gradient(180deg, var(--accent), #1f6feb); border-radius: 4px 4px 0 0; min-height: 2px; transition: .3s; }
+.bar-lbl { font-size: 10px; color: var(--dim); font-family: var(--mono); }
+.bar-val { font-size: 11px; font-family: var(--mono); color: var(--text); }
+
+/* ═══════════════════════════════════════════════════
+   TASKS TABLE
+═══════════════════════════════════════════════════ */
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.tab { padding: 6px 14px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); cursor: pointer; font-size: 13px; color: var(--dim); transition: .15s; }
+.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; padding: 8px 10px; border-bottom: 1px solid var(--border); font-family: var(--mono); }
+td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:hover td { background: var(--surface2); }
+
+.badge { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+.b-completed { background: rgba(63,185,80,.15);  color: var(--ok); }
+.b-failed    { background: rgba(248,81,73,.15);  color: var(--err); }
+.b-pending, .b-queued { background: rgba(210,153,34,.15); color: var(--warn); }
+.b-active    { background: rgba(47,129,247,.15); color: var(--accent); }
+
+/* ═══════════════════════════════════════════════════
+   FUSE BOX — physical assembly representation
+   Structure (top to bottom):
+     front cover (colored top cap)
+     green PCB with UPPER and LOWER fuse slots
+     back cover (colored bottom cap)
+═══════════════════════════════════════════════════ */
+.fusebox {
+  display: inline-flex;
+  flex-direction: column;
+  width: 52px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #000;
+  vertical-align: middle;
+  box-shadow: 0 1px 3px rgba(0,0,0,.5);
+}
+.fb-cover { height: 9px; }
+.fb-pcb { background: #2f8f46; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 4px 8px; }
+.fb-fuse { height: 5px; border-radius: 1px; background: rgba(0,0,0,.18); border: 1px dashed rgba(255,255,255,.35); }
+.fb-fuse.on { background: #0b0e12; border: 1px solid #000; box-shadow: inset 0 0 2px #333; }
+
+.fusebox.sm { width: 38px; }
+.fusebox.sm .fb-cover { height: 6px; }
+.fusebox.sm .fb-pcb { padding: 3px 6px; gap: 2px; }
+.fusebox.sm .fb-fuse { height: 4px; }
+
+.fusebox.lg { width: 72px; }
+.fusebox.lg .fb-cover { height: 12px; }
+.fusebox.lg .fb-pcb { padding: 6px 11px; gap: 4px; }
+.fusebox.lg .fb-fuse { height: 7px; }
+
+/* ═══════════════════════════════════════════════════
+   INVENTORY
+═══════════════════════════════════════════════════ */
+.inv-section-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0 8px 12px;
+  font-weight: 600; font-size: 12px;
+  text-transform: uppercase; letter-spacing: .5px;
+  color: var(--dim); font-family: var(--mono);
+  border-left: 3px solid var(--accent);
+  margin-bottom: 12px; margin-top: 20px;
+}
+.inv-section-head:first-child { margin-top: 0; }
+
+.inv-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.inv-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 10px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; text-align: center; transition: .2s;
+}
+.inv-card:hover { border-color: var(--accent); }
+.inv-card.low { border-color: var(--warn); background: rgba(210,153,34,.06); }
+.inv-card.out { border-color: var(--err);  background: rgba(248,81,73,.06); }
+
+.inv-qty { font-family: var(--mono); font-size: 22px; font-weight: 700; }
+.inv-qty.low { color: var(--warn); }
+.inv-qty.out { color: var(--err); }
+.inv-label { font-size: 10px; color: var(--dim); font-family: var(--mono); line-height: 1.5; }
+
+/* ═══════════════════════════════════════════════════
+   MANUAL STOCK FORM
+═══════════════════════════════════════════════════ */
+.form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; color: var(--dim); font-family: var(--mono); }
+select, input[type=number] {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 9px 12px;
+  font-family: var(--mono); font-size: 13px; min-width: 130px;
+}
+select:focus, input:focus { outline: none; border-color: var(--accent); }
+.btn {
+  background: var(--accent); color: #fff; border: none;
+  border-radius: 8px; padding: 10px 18px;
+  font-weight: 600; cursor: pointer; font-size: 13px; transition: .15s;
+}
+.btn:hover { background: #1f6feb; }
+.btn.ok { background: var(--ok); }
+.btn.ok:hover { background: #2ea043; }
+.preview-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; color: var(--dim); font-size: 12px; font-family: var(--mono); }
+
+/* ═══════════════════════════════════════════════════
+   EVENTS LOG
+═══════════════════════════════════════════════════ */
+.ev-log { display: flex; flex-direction: column; gap: 5px; font-family: var(--mono); font-size: 12px; max-height: 600px; overflow-y: auto; }
+.ev-line { display: flex; gap: 12px; padding: 7px 10px; border-radius: 6px; background: var(--surface2); }
+.ev-line .t { color: var(--dim); white-space: nowrap; }
+.ev-line.info    { border-left: 3px solid var(--accent); }
+.ev-line.warning { border-left: 3px solid var(--warn); }
+.ev-line.error   { border-left: 3px solid var(--err); }
+
+/* ═══════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════ */
+.toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--ok); color: #fff;
+  padding: 12px 18px; border-radius: 8px;
+  font-weight: 600; opacity: 0;
+  transform: translateY(10px); transition: .25s; z-index: 99;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.err-toast { background: var(--err); }
+
+/* Color swatch helper */
+.csw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+</style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- ══════════ HEADER ══════════ -->
+  <header>
+    <div class="logo">
+      <i class="fa-solid fa-industry"></i>
+      SRA · Smart Robot Assistant
+    </div>
+    <div class="conn-bar" id="connBar">
+      <div class="pill"><span class="dot" id="c-ws"></span>WebSocket</div>
+      <div class="pill"><span class="dot" id="c-db"></span>PostgreSQL</div>
+      <div class="pill"><span class="dot" id="c-ros"></span>ROS 2</div>
+      <div class="pill"><span class="dot" id="c-llm"></span>Ollama LLM</div>
+      <div class="pill"><span class="dot" id="c-ur"></span>UR10e</div>
+      <div class="pill"><span class="dot" id="c-bot"></span>Delivery Bot</div>
+    </div>
+  </header>
+
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside>
+    <div class="nav-item active" data-page="overview">
+      <i class="fa-solid fa-gauge-high"></i>Overview
+    </div>
+    <div class="nav-item" data-page="pipeline">
+      <i class="fa-solid fa-diagram-project"></i>Pipeline IA
+    </div>
+    <div class="nav-item" data-page="stats">
+      <i class="fa-solid fa-chart-column"></i>Estadísticas
+    </div>
+    <div class="nav-item" data-page="tasks">
+      <i class="fa-solid fa-list-check"></i>Tareas
+    </div>
+    <div class="nav-item" data-page="inventory">
+      <i class="fa-solid fa-boxes-stacked"></i>Inventario
+    </div>
+    <div class="nav-item" data-page="events">
+      <i class="fa-solid fa-terminal"></i>Eventos
+    </div>
+    <div class="nav-item" data-page="settings">
+      <i class="fa-solid fa-gear"></i>Configuración
+    </div>
+    <div class="nav-sep" id="sideVersion">v2.0 · Fase 1</div>
+  </aside>
+
+  <!-- ══════════ MAIN CONTENT ══════════ -->
+  <main>
+
+    <!-- ── OVERVIEW ── -->
+    <section class="page active" id="page-overview">
+      <h2>Panel de Control</h2>
+      <div class="subtitle">Estado del sistema en tiempo real</div>
+
+      <div class="grid g2">
+        <div class="card">
+          <h3>Estado del Sistema</h3>
+          <div class="state-box">
+            <div class="state-badge state-IDLE" id="stateBadge">IDLE</div>
+            <div class="state-desc" id="stateDesc">Esperando comandos del operador</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Estado de Robots</h3>
+          <div class="grid" style="gap:10px">
+            <div class="robot" id="robot-ur">
+              <div class="robot-head">
+                <i class="fa-solid fa-robot"></i>
+                <span class="robot-name">UR10e Cobot</span>
+                <span class="robot-state" id="ur-state">idle</span>
+              </div>
+              <div class="robot-detail" id="ur-detail">En posición home · listo</div>
+            </div>
+            <div class="robot" id="robot-bot">
+              <div class="robot-head">
+                <i class="fa-solid fa-truck-fast"></i>
+                <span class="robot-name">Delivery Bot</span>
+                <span class="robot-state" id="bot-state">standby</span>
+              </div>
+              <div class="robot-detail" id="bot-detail">RPi5 + Teensy4 · en estación de carga</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3>Línea de Tiempo · Orden Actual</h3>
+        <div class="timeline" id="timeline"></div>
+      </div>
+    </section>
+
+    <!-- ── PIPELINE IA ── -->
+    <section class="page" id="page-pipeline">
+      <h2>Pipeline de IA</h2>
+      <div class="subtitle">Transcripción → Parseo → Reserva → Entrega → Actualización de stock</div>
+      <div class="card">
+        <div class="chain" id="chain"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>Registro del Pipeline</h3>
+        <div class="pipe-log" id="pipeLog">
+          <div style="color:var(--dim);font-size:12px;font-family:var(--mono);text-align:center;padding:16px">
+            Sin eventos aún
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── ESTADÍSTICAS ── -->
+    <section class="page" id="page-stats">
+      <h2>Estadísticas</h2>
+      <div class="subtitle">Métricas de producción y rendimiento</div>
+      <div class="card">
+        <h3>Resumen de Tareas</h3>
+        <div class="ring-wrap">
+          <div class="ring">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <circle cx="80" cy="80" r="66" fill="none" stroke="var(--border)" stroke-width="16"/>
+              <circle id="ringOk"  cx="80" cy="80" r="66" fill="none" stroke="var(--ok)"  stroke-width="16" stroke-linecap="round" stroke-dasharray="0 999"/>
+              <circle id="ringErr" cx="80" cy="80" r="66" fill="none" stroke="var(--err)" stroke-width="16" stroke-linecap="round" stroke-dasharray="0 999"/>
+            </svg>
+            <div class="ring-center">
+              <div class="num" id="ringTotal">0</div>
+              <div class="lbl">Total</div>
+            </div>
+          </div>
+          <div class="legend">
+            <div class="leg-item"><span class="leg-sw" style="background:var(--ok)"></span>Completadas &nbsp;<strong id="legOk">0</strong></div>
+            <div class="leg-item"><span class="leg-sw" style="background:var(--err)"></span>Fallidas &nbsp;<strong id="legErr">0</strong></div>
+            <div class="leg-item"><span class="leg-sw" style="background:var(--border)"></span>Total &nbsp;<strong id="legTotal">0</strong></div>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat ok"><div class="val" id="stOk">0</div><div class="lbl">Completadas</div></div>
+          <div class="stat err"><div class="val" id="stErr">0</div><div class="lbl">Fallidas</div></div>
+          <div class="stat tot"><div class="val" id="stTotal">0</div><div class="lbl">Total</div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>Entregas por hora (últimas 8h)</h3>
+        <div class="bars" id="bars">
+          <div style="color:var(--dim);font-size:12px;font-family:var(--mono);align-self:center;margin:auto">
+            Sin datos todavía
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TAREAS ── -->
+    <section class="page" id="page-tasks">
+      <h2>Tareas</h2>
+      <div class="subtitle">Cola y historial de tareas de entrega</div>
+      <div class="tabs" id="taskTabs">
+        <div class="tab active" data-f="all">Todas</div>
+        <div class="tab" data-f="completed">Completadas</div>
+        <div class="tab" data-f="failed">Fallidas</div>
+        <div class="tab" data-f="queued">En cola</div>
+      </div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Producto</th>
+              <th>Cant.</th>
+              <th>Destino</th>
+              <th>Estado</th>
+              <th>Hora</th>
+            </tr>
+          </thead>
+          <tbody id="taskBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── INVENTARIO ── -->
+    <section class="page" id="page-inventory">
+      <h2>Inventario</h2>
+      <div class="subtitle">Stock de fusibleras por configuración</div>
+
+      <div class="card" style="margin-bottom:16px">
+        <h3>Agregar Stock Manualmente</h3>
+        <div class="form-row">
+          <div class="field">
+            <label>Tapa trasera</label>
+            <select id="addBack">
+              <option value="blue">Azul</option>
+              <option value="red">Rojo</option>
+              <option value="black">Negro</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Posición fusibles</label>
+            <select id="addFuses">
+              <option value="none">Sin fusibles</option>
+              <option value="upper">Fusible superior</option>
+              <option value="lower">Fusible inferior</option>
+              <option value="both">Ambos fusibles</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Tapa delantera</label>
+            <select id="addFront">
+              <option value="blue">Azul</option>
+              <option value="red">Rojo</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Cantidad</label>
+            <input type="number" id="addQty" min="1" value="1" style="min-width:80px">
+          </div>
+          <button class="btn ok" id="addStockBtn">
+            <i class="fa-solid fa-plus"></i> Agregar
+          </button>
+        </div>
+        <div class="preview-row">
+          Vista previa:
+          <span id="addPreview"></span>
+          <span id="addPreviewText" style="color:var(--text)"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Stock Actual — 24 Configuraciones</h3>
+        <div id="invBody"></div>
+      </div>
+    </section>
+
+    <!-- ── EVENTOS ── -->
+    <section class="page" id="page-events">
+      <h2>Eventos del Sistema</h2>
+      <div class="subtitle">Registro cronológico de todos los eventos</div>
+      <div class="card">
+        <div class="ev-log" id="evLog">
+          <div style="color:var(--dim);font-size:12px;font-family:var(--mono);text-align:center;padding:16px">
+            Esperando eventos...
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CONFIGURACIÓN ── -->
+    <section class="page" id="page-settings">
+      <h2>Configuración</h2>
+      <div class="subtitle">Parámetros operativos del sistema</div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>Entregas</h3>
+          <div class="field" style="margin-bottom:14px">
+            <label>Capacidad del delivery bot (posiciones)</label>
+            <input type="number" value="8" min="1" disabled>
+          </div>
+          <div class="field">
+            <label>Umbral de stock bajo</label>
+            <input type="number" value="2" min="0" disabled>
+          </div>
+          <p style="color:var(--dim);font-size:11px;margin-top:12px;font-family:var(--mono)">
+            Editable en <code>env.example</code> · Requiere reinicio del sistema
+          </p>
+        </div>
+        <div class="card">
+          <h3>Voz / STT</h3>
+          <div class="field" style="margin-bottom:14px">
+            <label>Modelo Faster-Whisper activo</label>
+            <select disabled><option>small</option><option>medium</option><option>large-v3-turbo</option></select>
+          </div>
+          <div class="field">
+            <label>Idioma</label>
+            <select disabled><option>es (Español)</option><option>en (English)</option></select>
+          </div>
+          <p style="color:var(--dim);font-size:11px;margin-top:12px;font-family:var(--mono)">
+            Editable en <code>voice_input.py</code> · Requiere rebuild
+          </p>
+        </div>
+        <div class="card">
+          <h3>LLM</h3>
+          <div class="field" style="margin-bottom:14px">
+            <label>Modelo Ollama</label>
+            <input type="text" value="llama3.1:8b-instruct-q4_K_M" disabled style="min-width:0">
+          </div>
+          <div class="field">
+            <label>Cantidad máxima por entrega</label>
+            <input type="number" value="6" disabled>
+          </div>
+          <p style="color:var(--dim);font-size:11px;margin-top:12px;font-family:var(--mono)">
+            Editable en <code>.env</code>
+          </p>
+        </div>
+        <div class="card">
+          <h3>Red ROS 2</h3>
+          <div class="field" style="margin-bottom:14px">
+            <label>RMW Middleware</label>
+            <input type="text" value="rmw_cyclonedds_cpp" disabled>
+          </div>
+          <div class="field">
+            <label>IP Desktop PC</label>
+            <input type="text" value="192.168.1.100" disabled>
+          </div>
+          <p style="color:var(--dim);font-size:11px;margin-top:12px;font-family:var(--mono)">
+            Configurado en <code>~/.bashrc</code>
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main><!-- end main -->
+</div><!-- end .app -->
+
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ── Navigation ── */
+document.querySelectorAll('.nav-item').forEach(n => {
+  n.onclick = () => {
+    document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+    n.classList.add('active');
+    document.getElementById('page-' + n.dataset.page).classList.add('active');
+  };
+});
+
+document.querySelectorAll('#taskTabs .tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('#taskTabs .tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    taskFilter = t.dataset.f;
+    renderTaskTable();
+  };
+});
+
+/* ── Constants ── */
+const COLORS = { blue: '#2f81f7', red: '#f85149', black: '#484f58' };
+const COLOR_LABELS = { blue: 'Azul', red: 'Rojo', black: 'Negro' };
+const FUSE_LABELS = { none: 'Sin fusibles', upper: 'Fusible superior', lower: 'Fusible inferior', both: 'Ambos fusibles' };
+const DEST_LABELS = { station_A: 'Estación A', station_B: 'Estación B' };
+const BACK_COLORS = ['blue', 'red', 'black'];
+const FRONT_COLORS = ['blue', 'red'];
+const FUSE_MODES  = ['none', 'upper', 'lower', 'both'];
+
+/* ── State ── */
+let inventoryData = {};   // config_code → item
+let allTasks      = [];   // from /api/tasks
+let taskFilter    = 'all';
+let ws            = null;
+let activeTask    = null;
+
+/* ── Helpers ── */
+function fmtTime(iso) {
+  const d = iso ? new Date(iso) : new Date();
+  const h = String(d.getHours()).padStart(2,'0');
+  const m = String(d.getMinutes()).padStart(2,'0');
+  const s = String(d.getSeconds()).padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
+
+function toast(msg, isErr) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isErr ? ' err-toast' : '');
+  setTimeout(() => el.className = 'toast', 2500);
+}
+
+/* ── Fuse box visual (physical assembly representation)
+   Structure top to bottom: front cover / green PCB + fuse slots / back cover ── */
+function fuseBoxHTML(back, fuseMode, front, size) {
+  const upperOn = fuseMode === 'upper' || fuseMode === 'both';
+  const lowerOn = fuseMode === 'lower' || fuseMode === 'both';
+  const backCol  = COLORS[back]  || '#484f58';
+  const frontCol = COLORS[front] || '#2f81f7';
+  const title = `Delantera: ${COLOR_LABELS[front]||front} · ${FUSE_LABELS[fuseMode]||fuseMode} · Trasera: ${COLOR_LABELS[back]||back}`;
+  return `<span class="fusebox ${size||''}" title="${title}">
+    <span class="fb-cover" style="background:${frontCol}"></span>
+    <span class="fb-pcb">
+      <span class="fb-fuse ${upperOn?'on':''}"></span>
+      <span class="fb-fuse ${lowerOn?'on':''}"></span>
+    </span>
+    <span class="fb-cover" style="background:${backCol}"></span>
+  </span>`;
+}
+
+function parseConfigCode(code) {
+  if (!code) return { back: 'black', front: 'blue', fuse: 'none' };
+  const p = code.split('-');
+  return { back: p[0]||'black', front: p[1]||'blue', fuse: p[2]||'none' };
+}
+
+/* ── System state ── */
+function setSystemState(state, desc) {
+  const b = document.getElementById('stateBadge');
+  b.className = 'state-badge state-' + state;
+  b.textContent = state;
+  if (desc) document.getElementById('stateDesc').textContent = desc;
+}
+
+function setRobotCard(which, state, detail, mode) {
+  const card = document.getElementById('robot-' + which);
+  card.classList.remove('active', 'error');
+  if (mode) card.classList.add(mode);
+  document.getElementById(which + '-state').textContent = state;
+  document.getElementById(which + '-detail').textContent = detail;
+}
+
+/* ── Connection pills ── */
+function setConn(id, state) {
+  const el = document.getElementById('c-' + id);
+  if (el) el.className = 'dot ' + state;
+}
+
+/* ── Timeline ── */
+const TL_STEPS = [
+  { key: 'stt',      title: 'Transcripción (STT)',       icon: 'fa-microphone' },
+  { key: 'parse',    title: 'Parseo de comando (LLM)',   icon: 'fa-brain'      },
+  { key: 'reserve',  title: 'Reserva de stock',          icon: 'fa-lock'       },
+  { key: 'delivery', title: 'Entrega',                   icon: 'fa-truck-fast' },
+  { key: 'stock',    title: 'Actualización de stock',    icon: 'fa-database'   },
+];
+let tlState = {};
+
+function setTLStep(key, status, sub, time) {
+  tlState[key] = { status, sub: sub||'', time: time||fmtTime() };
+  renderTimeline();
+}
+
+function renderTimeline() {
+  const el = document.getElementById('timeline');
+  el.innerHTML = '';
+  TL_STEPS.forEach((s, i) => {
+    const st  = tlState[s.key] || {};
+    const cls = st.status || '';
+    const last = i === TL_STEPS.length - 1;
+    const icon = cls === 'done' ? 'fa-check' : cls === 'failed' ? 'fa-xmark' : s.icon;
+    el.innerHTML += `<div class="tl-step ${cls}">
+      <div class="tl-marker">
+        <div class="tl-icon"><i class="fa-solid ${icon}"></i></div>
+        ${last ? '' : '<div class="tl-line"></div>'}
+      </div>
+      <div class="tl-body">
+        <div class="tl-title">${s.title}</div>
+        <div class="tl-sub">${st.sub || '—'}</div>
+        <div class="tl-time">${st.time || ''}</div>
+      </div>
+    </div>`;
+  });
+}
+
+function resetTimeline() { tlState = {}; renderTimeline(); }
+renderTimeline();
+
+/* ── Pipeline chain ── */
+const CHAIN_STEPS = [
+  { k: 'stt',      l: 'STT',      i: 'fa-microphone' },
+  { k: 'parse',    l: 'PARSE',    i: 'fa-brain'      },
+  { k: 'reserve',  l: 'RESERVE',  i: 'fa-lock'       },
+  { k: 'delivery', l: 'DELIVERY', i: 'fa-truck-fast' },
+  { k: 'complete', l: 'STOCK',    i: 'fa-database'   },
+];
+let chainState = {};
+
+function setChain(key, status) {
+  chainState[key] = status;
+  renderChain();
+}
+
+function renderChain() {
+  const el = document.getElementById('chain');
+  el.innerHTML = '';
+  CHAIN_STEPS.forEach((c, i) => {
+    const cls  = chainState[c.k] || '';
+    const icon = cls === 'done' ? 'fa-check' : cls === 'failed' ? 'fa-xmark' : c.i;
+    el.innerHTML += `<div class="chain-node ${cls}">
+      <div class="chain-circle"><i class="fa-solid ${icon}"></i></div>
+      <div class="chain-lbl">${c.l}</div>
+    </div>`;
+    if (i < CHAIN_STEPS.length - 1)
+      el.innerHTML += `<div class="chain-arrow ${cls === 'done' ? 'done' : ''}"></div>`;
+  });
+}
+
+function resetChain() { chainState = {}; renderChain(); }
+renderChain();
+
+function addPipeEntry(step, text, details) {
+  const log = document.getElementById('pipeLog');
+  const empty = log.querySelector('div[style]');
+  if (empty) empty.remove();
+
+  let rows = '';
+  for (const k in (details || {})) {
+    const v = String(details[k]);
+    let cls = '';
+    if (/ok|completado|reservado|entregado|éxito/i.test(v)) cls = 'ok';
+    else if (/rechaz|fallo|error|insuficiente/i.test(v)) cls = 'err';
+    else if (/bajo|pendiente|activo/i.test(v)) cls = 'warn';
+    rows += `<span class="k">${k}</span><span class="v ${cls}">${v}</span>`;
+  }
+  const div = document.createElement('div');
+  div.className = 'pipe-ev ' + step;
+  div.innerHTML = `<div class="pipe-head">
+      <span class="pipe-tag">${step}</span>
+      <span class="pipe-time">${fmtTime()}</span>
+    </div>
+    <div class="pipe-text">${text}</div>
+    ${rows ? `<div class="pipe-details">${rows}</div>` : ''}`;
+  log.insertBefore(div, log.firstChild);
+}
+
+/* ── Stats ── */
+function renderStats(stats) {
+  const ok    = stats.completed    || 0;
+  const err   = stats.failed       || 0;
+  const total = stats.total        || 0;
+  document.getElementById('stOk').textContent    = ok;
+  document.getElementById('stErr').textContent   = err;
+  document.getElementById('stTotal').textContent = total;
+  document.getElementById('legOk').textContent   = ok;
+  document.getElementById('legErr').textContent  = err;
+  document.getElementById('legTotal').textContent= total;
+  document.getElementById('ringTotal').textContent = total;
+  const C = 2 * Math.PI * 66;
+  const done  = ok + err;
+  const okLen  = done ? (ok / done) * C : 0;
+  const errLen = done ? (err / done) * C : 0;
+  document.getElementById('ringOk').setAttribute('stroke-dasharray', `${okLen} ${C - okLen}`);
+  const rErr = document.getElementById('ringErr');
+  rErr.setAttribute('stroke-dasharray', `${errLen} ${C - errLen}`);
+  rErr.setAttribute('stroke-dashoffset', `${-okLen}`);
+}
+
+/* ── Tasks table ── */
+function loadTasks(tasks) {
+  allTasks = tasks || [];
+  renderTaskTable();
+}
+
+function renderTaskTable() {
+  const body = document.getElementById('taskBody');
+  const list = taskFilter === 'all'
+    ? allTasks
+    : allTasks.filter(t => t.status === taskFilter);
+
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim)">Sin tareas</td></tr>';
+    return;
+  }
+  body.innerHTML = '';
+  list.forEach(t => {
+    const c = parseConfigCode(t.config_code);
+    body.innerHTML += `<tr>
+      <td style="font-family:var(--mono)">#${t.id}</td>
+      <td style="display:flex;align-items:center;gap:10px">
+        ${fuseBoxHTML(c.back, c.fuse, c.front, 'sm')}
+        <span>${COLOR_LABELS[c.back]||c.back} / ${FUSE_LABELS[c.fuse]||c.fuse} / ${COLOR_LABELS[c.front]||c.front}</span>
+      </td>
+      <td style="font-family:var(--mono)">${t.quantity}</td>
+      <td>${DEST_LABELS[t.destination] || t.destination || '—'}</td>
+      <td><span class="badge b-${t.status}">${t.status}</span></td>
+      <td style="font-family:var(--mono);font-size:12px">${fmtTime(t.requested_at)}</td>
+    </tr>`;
+  });
+}
+
+/* ── Inventory ── */
+function loadInventory(items) {
+  inventoryData = {};
+  (items || []).forEach(i => { inventoryData[i.config_code] = i; });
+  renderInventory();
+}
+
+function renderInventory() {
+  const el = document.getElementById('invBody');
+  el.innerHTML = '';
+  const LOW = 2;
+
+  BACK_COLORS.forEach(back => {
+    const backColor = COLORS[back] || '#888';
+    el.innerHTML += `<div class="inv-section-head">
+      <span class="csw" style="background:${backColor}"></span>
+      Tapa trasera: ${COLOR_LABELS[back] || back}
+    </div>`;
+    let grid = '<div class="inv-card-grid">';
+    FRONT_COLORS.forEach(front => {
+      FUSE_MODES.forEach(fm => {
+        const code = `${back}-${front}-${fm}`;
+        const item = inventoryData[code];
+        const qty  = item ? item.quantity : 0;
+        const cls  = qty === 0 ? 'out' : qty <= LOW ? 'low' : '';
+        const qtyCls = qty === 0 ? 'out' : qty <= LOW ? 'low' : '';
+        const badge = qty === 0
+          ? '<span class="badge b-failed">agotado</span>'
+          : qty <= LOW
+            ? '<span class="badge b-pending">bajo</span>'
+            : '<span class="badge b-completed">ok</span>';
+        grid += `<div class="inv-card ${cls}">
+          ${fuseBoxHTML(back, fm, front, 'lg')}
+          <div class="inv-qty ${qtyCls}">${qty}</div>
+          <div class="inv-label">
+            Delant: <strong style="color:${COLORS[front]}">${COLOR_LABELS[front]||front}</strong><br>
+            ${FUSE_LABELS[fm]}
+          </div>
+          ${badge}
+        </div>`;
+      });
+    });
+    grid += '</div>';
+    el.innerHTML += grid;
+  });
+}
+
+/* ── Manual stock add ── */
+function updateAddPreview() {
+  const back  = document.getElementById('addBack').value;
+  const fuse  = document.getElementById('addFuses').value;
+  const front = document.getElementById('addFront').value;
+  document.getElementById('addPreview').innerHTML = fuseBoxHTML(back, fuse, front, 'lg');
+  document.getElementById('addPreviewText').textContent =
+    `${COLOR_LABELS[back]||back} · ${FUSE_LABELS[fuse]||fuse} · ${COLOR_LABELS[front]||front}`;
+}
+['addBack','addFuses','addFront'].forEach(id =>
+  document.getElementById(id).addEventListener('change', updateAddPreview)
+);
+updateAddPreview();
+
+document.getElementById('addStockBtn').onclick = async () => {
+  const back  = document.getElementById('addBack').value;
+  const fuse  = document.getElementById('addFuses').value;
+  const front = document.getElementById('addFront').value;
+  const qty   = Math.max(1, parseInt(document.getElementById('addQty').value) || 1);
+  const code  = `${back}-${front}-${fuse}`;
+
+  try {
+    const res = await fetch('/api/inventory/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config_code: code, quantity: qty })
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast(`+${qty} agregado a ${code}`);
+      logEvent('info', `Stock manual agregado: +${qty} × ${code}`);
+      // Inventory will refresh via WebSocket broadcast from backend
+    } else {
+      toast(`Error: ${data.error || 'desconocido'}`, true);
+    }
+  } catch (e) {
+    toast('Error de conexión con el servidor', true);
+  }
+};
+
+/* ── Events log ── */
+function logEvent(level, message, timestamp) {
+  const el = document.getElementById('evLog');
+  const empty = el.querySelector('div[style]');
+  if (empty) empty.remove();
+
+  const line = document.createElement('div');
+  line.className = `ev-line ${level || 'info'}`;
+  line.innerHTML = `<span class="t">${fmtTime(timestamp)}</span><span>${message}</span>`;
+  el.insertBefore(line, el.firstChild);
+  while (el.children.length > 100) el.removeChild(el.lastChild);
+}
+
+/* ── Clock ── */
+function updateClock() {
+  const el = document.getElementById('sideVersion');
+  if (!el) return;
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  el.textContent = `v2.0 · ${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ═══════════════════════════════════════════════════
+   WEBSOCKET — real connection to web_bridge.py
+═══════════════════════════════════════════════════ */
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen = () => {
+    setConn('ws', 'live');
+    setConn('db', 'live');
+    setConn('ros', 'live');
+    setConn('llm', 'live');
+    logEvent('info', 'WebSocket conectado al servidor SRA');
+  };
+
+  ws.onclose = () => {
+    setConn('ws', 'dead');
+    logEvent('warning', 'WebSocket desconectado. Reconectando en 3s...');
+    setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = (event) => {
+    try {
+      handleMessage(JSON.parse(event.data));
+    } catch(e) {
+      console.error('WS parse error', e);
+    }
+  };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+
+    case 'init':
+      loadInventory(msg.inventory);
+      loadTasks(msg.tasks);
+      if (msg.stats) renderStats(msg.stats);
+      logEvent('info', 'Dashboard sincronizado con el servidor');
+      break;
+
+    case 'alert':
+      logEvent(msg.level || 'info', msg.message, msg.timestamp);
+      // Map alerts to pipeline view
+      mapAlertToPipeline(msg);
+      break;
+
+    case 'task_active':
+      activeTask = msg;
+      resetTimeline();
+      resetChain();
+      setSystemState('RESERVING', `Reservando stock para tarea #${msg.task_id}...`);
+      setTLStep('stt',   'done',   'Transcripción completada', '');
+      setTLStep('parse', 'done',   `Comando: ${msg.config_code} × ${msg.quantity}`, '');
+      setTLStep('reserve','active','Verificando y reservando...', fmtTime());
+      setChain('stt',   'done');
+      setChain('parse', 'done');
+      setChain('reserve','active');
+      addPipeEntry('RESERVE', `Reserva iniciada para tarea #${msg.task_id}`,
+        { config: msg.config_code, cantidad: msg.quantity, destino: DEST_LABELS[msg.destination]||msg.destination });
+      break;
+
+    case 'task_status':
+      if (!activeTask) break;
+      if (msg.status === 'accepted') {
+        setSystemState('DELIVERING', `Tarea #${msg.task_id} en camino → ${DEST_LABELS[activeTask.destination]||activeTask.destination}`);
+        setTLStep('reserve', 'done', 'Stock reservado', fmtTime());
+        setTLStep('delivery','active','Robot en ruta...', fmtTime());
+        setChain('reserve', 'done');
+        setChain('delivery','active');
+        setRobotCard('bot', 'en ruta', `Transportando → ${DEST_LABELS[activeTask.destination]||activeTask.destination}`, 'active');
+        setRobotCard('ur',  'picking', 'Tomando piezas del almacén', 'active');
+      } else if (msg.status === 'in_progress') {
+        setSystemState('DELIVERING', 'Entrega en curso...');
+      } else if (msg.status === 'rejected' || msg.status === 'failed') {
+        setSystemState('ERROR', 'Tarea rechazada — stock insuficiente');
+        setTLStep('reserve', 'failed', 'Stock insuficiente', fmtTime());
+        setChain('reserve', 'failed');
+        setChain('delivery','failed');
+        setChain('complete','failed');
+        setRobotCard('bot','standby','En estación de carga','');
+        setRobotCard('ur', 'idle',   'En posición home · listo','');
+        addPipeEntry('REJECT', 'Reserva rechazada — stock insuficiente', { estado: 'rechazado' });
+        setTimeout(() => { setSystemState('IDLE','Esperando comandos del operador'); activeTask = null; }, 4000);
+      }
+      break;
+
+    case 'task_completed': {
+      const c = parseConfigCode(msg.config_code);
+      setTLStep('delivery','done', 'Entrega completada', fmtTime());
+      setTLStep('stock',   'done', `Stock actualizado`, fmtTime());
+      setChain('delivery','done');
+      setChain('complete','done');
+      setRobotCard('bot','standby','Regresando a base','');
+      setRobotCard('ur', 'idle',  'En posición home · listo','');
+      setSystemState('COMPLETED', `Tarea #${msg.task_id} completada correctamente`);
+      addPipeEntry('COMPLETE', `Tarea #${msg.task_id} completada`, {
+        config: msg.config_code, entregado: msg.quantity,
+        destino: DEST_LABELS[msg.destination]||msg.destination, estado: 'completado'
+      });
+      // Refresh all data from server
+      fetch('/api/inventory').then(r=>r.json()).then(loadInventory).catch(()=>{});
+      fetch('/api/tasks').then(r=>r.json()).then(loadTasks).catch(()=>{});
+      fetch('/api/stats').then(r=>r.json()).then(renderStats).catch(()=>{});
+      setTimeout(() => {
+        setSystemState('IDLE','Esperando comandos del operador');
+        activeTask = null;
+      }, 4000);
+      break;
+    }
+
+    case 'inventory_update':
+      // Triggered after manual add stock is confirmed by backend
+      fetch('/api/inventory').then(r=>r.json()).then(loadInventory).catch(()=>{});
+      break;
+
+    case 'ping':
+      break; // keepalive — no action needed
+  }
+}
+
+/* Map alert messages to pipeline view entries */
+function mapAlertToPipeline(msg) {
+  const m = (msg.message || '').toLowerCase();
+  if (/transcri|stt|voz/i.test(m)) {
+    addPipeEntry('STT', msg.message);
+  } else if (/parseo|interpret|llm|comando/i.test(m)) {
+    addPipeEntry('PARSE', msg.message);
+  } else if (/reserva|stock/i.test(m)) {
+    addPipeEntry('RESERVE', msg.message, { nivel: msg.level });
+  } else if (/robot|ruta|entrega|camino/i.test(m)) {
+    addPipeEntry('DELIVERY', msg.message);
+  } else if (/complet|actualiz/i.test(m)) {
+    addPipeEntry('COMPLETE', msg.message);
+  } else if (/rechaz|insuficiente|error/i.test(m)) {
+    addPipeEntry('REJECT', msg.message, { nivel: msg.level });
+  }
+}
+
+/* ── Init ── */
+renderInventory(); // render empty grid while loading
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SRA — Control Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --bg:          #07090f;
+  --surface:     #0d1117;
+  --surface-2:   #131922;
+  --border:      #1c2b3a;
+  --border-dim:  #131c28;
+
+  /* Accent — UR robot blue */
+  --accent:      #2563eb;
+  --accent-dim:  rgba(37, 99, 235, 0.12);
+  --accent-glow: rgba(37, 99, 235, 0.25);
+
+  /* Status colors */
+  --green:       #22c55e;
+  --green-dim:   rgba(34, 197, 94, 0.12);
+  --amber:       #f59e0b;
+  --amber-dim:   rgba(245, 158, 11, 0.12);
+  --red:         #ef4444;
+  --red-dim:     rgba(239, 68, 68, 0.12);
+
+  /* Fuse box physical colors */
+  --box-blue:    #3b82f6;
+  --box-red:     #ef4444;
+  --box-black:   #6b7280;
+
+  /* Typography */
+  --text:        #c9d1d9;
+  --text-dim:    #6e7f96;
+  --text-faint:  #3d4f63;
+
+  /* Fonts */
+  --mono: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+  --sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+
+  /* Layout */
+  --radius:    8px;
+  --radius-sm: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ═══════════════════════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════════════════════ */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brand {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--accent); }
+  50% { opacity: 0.6; box-shadow: 0 0 3px var(--accent); }
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.host-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 2px 10px;
+  border-radius: 99px;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+.conn-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.connection-status.live .conn-dot {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.connection-status.live .conn-label { color: var(--green); }
+.connection-status .conn-label { color: var(--text-dim); }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+#clock {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  min-width: 72px;
+  text-align: right;
+}
+
+.phase-badge {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--amber);
+  background: var(--amber-dim);
+  border: 1px solid rgba(245,158,11,0.25);
+  padding: 2px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.05em;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN LAYOUT
+   ═══════════════════════════════════════════════════════════ */
+main {
+  display: grid;
+  grid-template-columns: 340px 1fr 300px;
+  gap: 1px;
+  background: var(--border-dim);
+  height: calc(100vh - 52px);
+  overflow: hidden;
+}
+
+.panel {
+  background: var(--bg);
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-dim);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-label .badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 1px 7px;
+  border-radius: 99px;
+  color: var(--text-dim);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INVENTORY — LEFT PANEL
+   ═══════════════════════════════════════════════════════════ */
+.color-group { display: flex; flex-direction: column; gap: 6px; }
+
+.color-group-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.color-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+/* Individual configuration card */
+.cfg-card {
+  background: var(--surface);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 7px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, background 0.2s;
+  cursor: default;
+}
+
+.cfg-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+}
+
+.cfg-card[data-back="blue"]::before  { background: var(--box-blue); }
+.cfg-card[data-back="red"]::before   { background: var(--box-red); }
+.cfg-card[data-back="black"]::before { background: var(--box-black); }
+
+.cfg-card.low-stock {
+  border-color: rgba(239,68,68,0.35);
+  background: rgba(239,68,68,0.04);
+}
+
+.cfg-card.low-stock::after {
+  content: '!';
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--red);
+  font-family: var(--mono);
+}
+
+/* Fuse indicators — two dots showing fuse positions */
+.fuse-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  margin-left: 4px;
+}
+
+.fuse-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+}
+
+.fuse-dot.filled { background: var(--amber); border-color: var(--amber); }
+
+/* Front color indicator */
+.front-indicator {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+}
+
+.cfg-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.cfg-quantity {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-left: 4px;
+  line-height: 1;
+}
+
+.cfg-unit {
+  font-size: 9px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  margin-left: 4px;
+}
+
+.cfg-code {
+  font-family: var(--mono);
+  font-size: 8px;
+  color: var(--text-faint);
+  margin-left: 4px;
+  line-height: 1.2;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CENTER PANEL — ACTIVE TASK + QUEUE
+   ═══════════════════════════════════════════════════════════ */
+
+/* Active task card */
+.active-task-wrapper {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: border-color 0.4s, box-shadow 0.4s;
+  position: relative;
+  overflow: hidden;
+}
+
+.active-task-wrapper.active {
+  border-color: var(--glow-color, var(--accent));
+  box-shadow: 0 0 20px var(--glow-shadow, var(--accent-glow));
+}
+
+.active-task-wrapper.idle {
+  align-items: center;
+}
+
+.idle-text {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.task-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.task-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.task-status-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+}
+
+.task-status-badge.accepted   { background: var(--accent-dim);  color: var(--accent); border: 1px solid rgba(37,99,235,0.3); }
+.task-status-badge.in_progress{ background: var(--amber-dim);   color: var(--amber);  border: 1px solid rgba(245,158,11,0.3); }
+.task-status-badge.completed  { background: var(--green-dim);   color: var(--green);  border: 1px solid rgba(34,197,94,0.3); }
+
+.task-config {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.task-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+
+.task-meta span { color: var(--text); font-weight: 600; }
+
+/* Animated progress bar */
+.progress-track {
+  height: 3px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--glow-color, var(--accent));
+  box-shadow: 0 0 8px var(--glow-shadow, var(--accent-glow));
+  width: 0%;
+  transition: width 0.5s ease;
+}
+
+.progress-bar.animating {
+  animation: progress-fill 5s linear forwards;
+}
+
+@keyframes progress-fill {
+  from { width: 5%; }
+  to   { width: 100%; }
+}
+
+/* Queue list */
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.queue-item {
+  background: var(--surface);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: slide-in 0.25s ease;
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.queue-pos {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  width: 18px;
+}
+
+.queue-code {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  margin: 0 8px;
+}
+
+.queue-dest {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.queue-empty {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* Stats row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 12px 10px;
+  text-align: center;
+}
+
+.stat-value {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RIGHT PANEL — ALERTS + TASK HISTORY
+   ═══════════════════════════════════════════════════════════ */
+
+/* Alert feed */
+.alert-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.alert-item {
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: slide-in 0.2s ease;
+  border-left: 3px solid transparent;
+}
+
+.alert-item.info    { background: var(--accent-dim); border-left-color: var(--accent); }
+.alert-item.warning { background: var(--amber-dim);  border-left-color: var(--amber);  }
+.alert-item.error   { background: var(--red-dim);    border-left-color: var(--red);    }
+
+.alert-message {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.alert-time {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+/* Task history */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.history-item {
+  background: var(--surface);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-id {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  min-width: 26px;
+}
+
+.history-code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  flex: 1;
+}
+
+.history-dest {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.history-status {
+  font-size: 10px;
+  font-family: var(--mono);
+}
+
+.history-status.completed { color: var(--green); }
+.history-status.failed    { color: var(--red); }
+.history-status.pending,
+.history-status.queued    { color: var(--amber); }
+
+.empty-state {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: center;
+  padding: 16px 0;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<header>
+  <div class="brand">
+    <div class="brand-dot"></div>
+    SRA
+  </div>
+
+  <div class="header-center">
+    <span class="host-badge">master-brain</span>
+    <div class="connection-status" id="conn-status">
+      <div class="conn-dot"></div>
+      <span class="conn-label">CONECTANDO</span>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <span class="phase-badge">FASE 1 · SIMULACIÓN</span>
+    <div id="clock">—</div>
+  </div>
+</header>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<main>
+
+  <!-- ── LEFT: INVENTORY ── -->
+  <div class="panel">
+    <div class="panel-label">
+      Inventario
+      <span class="badge" id="total-stock-badge">—</span>
+    </div>
+
+    <div class="color-group" id="group-blue">
+      <div class="color-group-label">
+        <div class="color-swatch" style="background:#3b82f6"></div>
+        Cubierta Azul
+      </div>
+      <div class="config-grid" id="configs-blue"></div>
+    </div>
+
+    <div class="color-group" id="group-red">
+      <div class="color-group-label">
+        <div class="color-swatch" style="background:#ef4444"></div>
+        Cubierta Roja
+      </div>
+      <div class="config-grid" id="configs-red"></div>
+    </div>
+
+    <div class="color-group" id="group-black">
+      <div class="color-group-label">
+        <div class="color-swatch" style="background:#6b7280"></div>
+        Cubierta Negra
+      </div>
+      <div class="config-grid" id="configs-black"></div>
+    </div>
+  </div>
+
+  <!-- ── CENTER: ACTIVE + QUEUE ── -->
+  <div class="panel">
+    <div class="panel-label">Entrega Activa</div>
+
+    <div class="active-task-wrapper idle" id="active-task">
+      <p class="idle-text">Esperando tarea...</p>
+    </div>
+
+    <div class="panel-label">
+      Cola de Tareas
+      <span class="badge" id="queue-badge">0</span>
+    </div>
+
+    <div class="queue-list" id="queue-list">
+      <div class="queue-empty">Cola vacía</div>
+    </div>
+
+    <div class="panel-label" style="margin-top:4px">Estadísticas</div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-label">Tareas totales</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-completed">—</div>
+        <div class="stat-label">Completadas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-rate">—</div>
+        <div class="stat-label">Tasa de éxito</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: ALERTS + HISTORY ── -->
+  <div class="panel">
+    <div class="panel-label">Eventos en Vivo</div>
+    <div class="alert-feed" id="alert-feed">
+      <div class="empty-state">Sin eventos aún</div>
+    </div>
+
+    <div class="panel-label">Tareas Recientes</div>
+    <div class="history-list" id="task-history">
+      <div class="empty-state">Sin historial</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══════════════ JAVASCRIPT ═══════════════ -->
+<script>
+// ─────────────────────────────────────────────
+// CLOCK
+// ─────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+const COLOR_MAP = {
+  blue:  { hex: '#3b82f6', glow: 'rgba(59,130,246,0.25)',  shadow: 'rgba(59,130,246,0.12)'  },
+  red:   { hex: '#ef4444', glow: 'rgba(239,68,68,0.25)',   shadow: 'rgba(239,68,68,0.12)'   },
+  black: { hex: '#6b7280', glow: 'rgba(107,114,128,0.25)', shadow: 'rgba(107,114,128,0.12)' },
+};
+
+const FUSE_LABELS = {
+  none:  'Sin fusibles',
+  upper: 'Superior',
+  lower: 'Inferior',
+  both:  'Ambos',
+};
+
+const DEST_LABELS = {
+  station_A: 'Estación A',
+  station_B: 'Estación B',
+};
+
+function fmtTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const h = String(d.getHours()).padStart(2,'0');
+  const m = String(d.getMinutes()).padStart(2,'0');
+  const s = String(d.getSeconds()).padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
+
+// ─────────────────────────────────────────────
+// INVENTORY RENDERING
+// ─────────────────────────────────────────────
+let inventoryData = {}; // config_code → item
+
+function renderInventory(items) {
+  inventoryData = {};
+  items.forEach(i => { inventoryData[i.config_code] = i; });
+
+  const groups = { blue: [], red: [], black: [] };
+  items.forEach(i => { if (groups[i.back_color]) groups[i.back_color].push(i); });
+
+  let total = 0;
+  for (const [color, list] of Object.entries(groups)) {
+    const container = document.getElementById(`configs-${color}`);
+    container.innerHTML = '';
+    list.forEach(item => {
+      total += item.quantity;
+      container.appendChild(buildConfigCard(item));
+    });
+  }
+  document.getElementById('total-stock-badge').textContent = `${total} uds`;
+}
+
+function buildConfigCard(item) {
+  const lowStock = item.quantity <= item.low_stock_threshold;
+  const card = document.createElement('div');
+  card.className = 'cfg-card' + (lowStock ? ' low-stock' : '');
+  card.dataset.back = item.back_color;
+  card.dataset.code = item.config_code;
+
+  // Fuse dots: upper + lower
+  const upperFilled = ['upper','both'].includes(item.fuse_position);
+  const lowerFilled = ['lower','both'].includes(item.fuse_position);
+  const frontHex = COLOR_MAP[item.front_color]?.hex || '#fff';
+
+  card.innerHTML = `
+    <div class="cfg-meta">
+      <div class="front-indicator" style="background:${frontHex};opacity:0.85"></div>
+      <div class="fuse-dots">
+        <div class="fuse-dot ${upperFilled ? 'filled' : ''}"></div>
+        <div class="fuse-dot ${lowerFilled ? 'filled' : ''}"></div>
+      </div>
+    </div>
+    <div class="cfg-quantity">${item.quantity}</div>
+    <div class="cfg-unit">uds</div>
+    <div class="cfg-code">${item.front_color}<br>${FUSE_LABELS[item.fuse_position] || item.fuse_position}</div>
+  `;
+  return card;
+}
+
+function updateCardQuantity(configCode, newQty) {
+  const card = document.querySelector(`.cfg-card[data-code="${configCode}"]`);
+  if (!card) return;
+  const item = inventoryData[configCode];
+  if (item) {
+    item.quantity = newQty;
+    const qtyEl = card.querySelector('.cfg-quantity');
+    if (qtyEl) qtyEl.textContent = newQty;
+    const lowStock = newQty <= (item.low_stock_threshold || 2);
+    card.classList.toggle('low-stock', lowStock);
+  }
+}
+
+// ─────────────────────────────────────────────
+// ACTIVE TASK
+// ─────────────────────────────────────────────
+function showActiveTask(task) {
+  const el = document.getElementById('active-task');
+  const colors = COLOR_MAP[task.config_code?.split('-')[0]] || COLOR_MAP.blue;
+
+  el.className = 'active-task-wrapper active';
+  el.style.setProperty('--glow-color',  colors.hex);
+  el.style.setProperty('--glow-shadow', colors.shadow);
+
+  const statusLabel = {
+    accepted:    'Aceptado',
+    in_progress: 'En camino',
+    completed:   'Completado',
+  }[task.status] || task.status;
+
+  el.innerHTML = `
+    <div class="task-header">
+      <span class="task-id">TAREA #${task.task_id}</span>
+      <span class="task-status-badge ${task.status}">${statusLabel}</span>
+    </div>
+    <div class="task-config">${task.config_code || '—'}</div>
+    <div class="task-meta">
+      <span>${task.quantity}</span> unidad${task.quantity !== 1 ? 'es' : ''}
+      &nbsp;→&nbsp;
+      <span>${DEST_LABELS[task.destination] || task.destination}</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-bar animating" style="background:${colors.hex};box-shadow:0 0 8px ${colors.glow}"></div>
+    </div>
+  `;
+}
+
+function clearActiveTask() {
+  const el = document.getElementById('active-task');
+  el.className = 'active-task-wrapper idle';
+  el.style.removeProperty('--glow-color');
+  el.style.removeProperty('--glow-shadow');
+  el.innerHTML = '<p class="idle-text">Esperando tarea...</p>';
+}
+
+// ─────────────────────────────────────────────
+// QUEUE
+// ─────────────────────────────────────────────
+let taskQueue = [];
+
+function renderQueue() {
+  const el = document.getElementById('queue-list');
+  document.getElementById('queue-badge').textContent = taskQueue.length;
+
+  if (taskQueue.length === 0) {
+    el.innerHTML = '<div class="queue-empty">Cola vacía</div>';
+    return;
+  }
+
+  el.innerHTML = '';
+  taskQueue.forEach((t, i) => {
+    const item = document.createElement('div');
+    item.className = 'queue-item';
+    item.innerHTML = `
+      <span class="queue-pos">${i + 1}</span>
+      <span class="queue-code">${t.config_code}</span>
+      <span class="queue-dest">${t.quantity}× ${DEST_LABELS[t.destination] || t.destination}</span>
+    `;
+    el.appendChild(item);
+  });
+}
+
+// ─────────────────────────────────────────────
+// ALERTS FEED
+// ─────────────────────────────────────────────
+const MAX_ALERTS = 30;
+
+function addAlert(level, message, timestamp) {
+  const feed = document.getElementById('alert-feed');
+  const empty = feed.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = `alert-item ${level}`;
+  const time = timestamp ? fmtTime(timestamp) : fmtTime(new Date().toISOString());
+  item.innerHTML = `
+    <div class="alert-message">${message}</div>
+    <div class="alert-time">${time}</div>
+  `;
+
+  feed.insertBefore(item, feed.firstChild);
+
+  // Cap total alerts
+  while (feed.children.length > MAX_ALERTS) {
+    feed.removeChild(feed.lastChild);
+  }
+}
+
+// ─────────────────────────────────────────────
+// TASK HISTORY
+// ─────────────────────────────────────────────
+function renderTaskHistory(tasks) {
+  const el = document.getElementById('task-history');
+  el.innerHTML = '';
+
+  if (!tasks || tasks.length === 0) {
+    el.innerHTML = '<div class="empty-state">Sin historial</div>';
+    return;
+  }
+
+  tasks.forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    const statusSymbol = { completed: '✓', failed: '✗', queued: '…', pending: '…' }[t.status] || '·';
+    item.innerHTML = `
+      <span class="history-id">#${t.id}</span>
+      <span class="history-code">${t.config_code || '—'}</span>
+      <span class="history-dest">${DEST_LABELS[t.destination] || t.destination || '—'}</span>
+      <span class="history-status ${t.status}">${statusSymbol}</span>
+    `;
+    el.appendChild(item);
+  });
+}
+
+function prependHistoryItem(task) {
+  const el = document.getElementById('task-history');
+  const empty = el.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = 'history-item';
+  const statusSymbol = { completed: '✓', failed: '✗' }[task.status] || '·';
+  item.innerHTML = `
+    <span class="history-id">#${task.task_id}</span>
+    <span class="history-code">${task.config_code || '—'}</span>
+    <span class="history-dest">${DEST_LABELS[task.destination] || task.destination || '—'}</span>
+    <span class="history-status ${task.status}">${statusSymbol}</span>
+  `;
+  el.insertBefore(item, el.firstChild);
+
+  // Keep max 20
+  while (el.children.length > 20) el.removeChild(el.lastChild);
+}
+
+// ─────────────────────────────────────────────
+// STATS
+// ─────────────────────────────────────────────
+function renderStats(stats) {
+  document.getElementById('stat-total').textContent     = stats.total ?? '—';
+  document.getElementById('stat-completed').textContent = stats.completed ?? '—';
+  document.getElementById('stat-rate').textContent      = stats.success_rate != null ? `${stats.success_rate}%` : '—';
+}
+
+// ─────────────────────────────────────────────
+// WEBSOCKET
+// ─────────────────────────────────────────────
+let ws = null;
+let activeTask = null;
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen = () => {
+    const el = document.getElementById('conn-status');
+    el.className = 'connection-status live';
+    el.querySelector('.conn-label').textContent = 'EN VIVO';
+  };
+
+  ws.onclose = () => {
+    const el = document.getElementById('conn-status');
+    el.className = 'connection-status';
+    el.querySelector('.conn-label').textContent = 'RECONECTANDO';
+    setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    handleMessage(msg);
+  };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+
+    case 'init':
+      renderInventory(msg.inventory || []);
+      renderTaskHistory(msg.tasks || []);
+      renderStats(msg.stats || {});
+      break;
+
+    case 'alert':
+      addAlert(msg.level || 'info', msg.message, msg.timestamp);
+      break;
+
+    case 'task_active':
+      activeTask = msg;
+      showActiveTask(msg);
+      // Add to queue display if queued
+      if (msg.status === 'queued') {
+        taskQueue.push(msg);
+        renderQueue();
+      }
+      break;
+
+    case 'task_status':
+      if (activeTask && activeTask.task_id === msg.task_id) {
+        activeTask.status = msg.status;
+        showActiveTask(activeTask);
+      }
+      // Remove from queue when dispatched
+      if (msg.status === 'accepted') {
+        taskQueue = taskQueue.filter(t => t.task_id !== msg.task_id);
+        renderQueue();
+      }
+      break;
+
+    case 'task_completed':
+      clearActiveTask();
+      activeTask = null;
+      prependHistoryItem(msg);
+      // Refresh inventory from server after delivery
+      fetch('/api/inventory')
+        .then(r => r.json())
+        .then(data => renderInventory(data))
+        .catch(() => {});
+      fetch('/api/stats')
+        .then(r => r.json())
+        .then(data => renderStats(data))
+        .catch(() => {});
+      break;
+
+    case 'ping':
+      // keepalive — no action needed
+      break;
+  }
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+connect();
+</script>
+</body>
+</html>

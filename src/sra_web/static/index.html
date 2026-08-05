@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SRA · Panel Industrial</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface-2:#1c2330;--border:#2d333b;--text:#e6edf3;--text-dim:#8b949e;--accent:#2f81f7;--ok:#3fb950;--warn:#d29922;--err:#f85149;--purple:#a371f7;--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.app{display:grid;grid-template-columns:220px 1fr;grid-template-rows:auto 1fr;height:100vh}
+header{grid-column:1/3;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:24px;height:60px}
+.logo{font-family:var(--mono);font-weight:700;font-size:16px;color:var(--accent);white-space:nowrap;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.conn-bar{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center}
+.pill{display:flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;font-family:var(--mono)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--err);transition:background .3s,box-shadow .3s}
+.dot.live{background:var(--ok);box-shadow:0 0 6px var(--ok)}.dot.warn{background:var(--warn);box-shadow:0 0 6px var(--warn)}.dot.dead{background:var(--err)}
+#clock{font-family:var(--mono);font-size:13px;color:var(--text-dim);min-width:72px;text-align:right}
+aside{background:var(--surface);border-right:1px solid var(--border);padding:16px 10px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;cursor:pointer;color:var(--text-dim);font-weight:500;transition:.15s;user-select:none}
+.nav-item i{width:18px;text-align:center}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}.nav-item.active{background:var(--accent);color:#fff}
+.nav-sep{margin-top:auto;font-size:11px;color:var(--text-dim);padding:8px 14px;font-family:var(--mono)}
+main{overflow-y:auto;padding:24px}
+.page{display:none;animation:fade .2s}.page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+h2{font-size:20px;margin-bottom:4px}.subtitle{color:var(--text-dim);margin-bottom:20px;font-size:13px}
+.grid{display:grid;gap:16px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px}
+.card h3{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);margin-bottom:14px;font-family:var(--mono)}
+.state-box{display:flex;align-items:center;gap:16px}
+.state-badge{font-family:var(--mono);font-weight:700;font-size:22px;padding:10px 20px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);transition:.3s}
+.state-IDLE{color:var(--text-dim)}.state-LISTENING{color:var(--accent);border-color:var(--accent)}.state-PARSING{color:var(--purple);border-color:var(--purple)}.state-RESERVING{color:var(--warn);border-color:var(--warn)}.state-DELIVERING{color:var(--accent);border-color:var(--accent)}.state-COMPLETED{color:var(--ok);border-color:var(--ok)}.state-COMPLETING{color:var(--ok);border-color:var(--ok)}.state-ERROR{color:var(--err);border-color:var(--err)}.state-DESCONECTADO{color:var(--err);border-color:var(--err)}
+.robot{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:16px;transition:.2s}
+.robot.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.robot.error{border-color:var(--err)}
+.robot-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.robot-head i{font-size:20px;color:var(--accent)}.robot-name{font-weight:600}
+.robot-state{margin-left:auto;font-family:var(--mono);font-size:12px;padding:3px 10px;border-radius:12px;background:var(--surface);border:1px solid var(--border)}
+.robot-detail{color:var(--text-dim);font-size:13px}
+.timeline{display:flex;flex-direction:column;gap:0}
+.tl-step{display:flex;gap:14px;padding:2px 0}
+.tl-marker{display:flex;flex-direction:column;align-items:center}
+.tl-icon{width:28px;height:28px;border-radius:50%;background:var(--surface-2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-dim);z-index:1;transition:.3s}
+.tl-line{width:2px;flex:1;background:var(--border);min-height:18px;transition:background .3s}
+.tl-step.done .tl-icon{background:var(--ok);border-color:var(--ok);color:#fff}
+.tl-step.done .tl-line{background:var(--ok)}
+.tl-step.active .tl-icon{background:var(--accent);border-color:var(--accent);color:#fff;animation:pulse 1.2s infinite}
+.tl-step.failed .tl-icon{background:var(--err);border-color:var(--err);color:#fff}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(47,129,247,.5)}50%{box-shadow:0 0 0 6px rgba(47,129,247,0)}}
+.tl-body{padding-bottom:14px}.tl-title{font-weight:600;font-size:13px}
+.tl-sub{color:var(--text-dim);font-size:12px;font-family:var(--mono)}.tl-time{color:var(--text-dim);font-size:11px;font-family:var(--mono)}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.stat{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.stat .val{font-family:var(--mono);font-size:28px;font-weight:700}
+.stat .lbl{color:var(--text-dim);font-size:12px;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+.stat.ok .val{color:var(--ok)}.stat.err .val{color:var(--err)}.stat.total .val{color:var(--accent)}
+.ring-wrap{display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+.ring{position:relative;width:160px;height:160px}.ring svg{transform:rotate(-90deg)}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-center .num{font-family:var(--mono);font-size:32px;font-weight:700}
+.ring-center .lbl{color:var(--text-dim);font-size:11px;text-transform:uppercase}
+.legend{display:flex;flex-direction:column;gap:10px}
+.leg-item{display:flex;align-items:center;gap:8px;font-size:13px}
+.leg-sw{width:12px;height:12px;border-radius:3px}
+.bars{display:flex;align-items:flex-end;gap:8px;height:160px;padding-top:10px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%}
+.bar{width:100%;background:linear-gradient(180deg,var(--accent),#1f6feb);border-radius:4px 4px 0 0;transition:.3s;min-height:2px}
+.bar-lbl{font-size:10px;color:var(--text-dim);font-family:var(--mono)}
+.bar-val{font-size:11px;font-family:var(--mono);color:var(--text)}
+.chain{display:flex;align-items:center;gap:0;margin-bottom:20px;flex-wrap:wrap}
+.chain-node{display:flex;flex-direction:column;align-items:center;gap:6px}
+.chain-circle{width:40px;height:40px;border-radius:50%;background:var(--surface-2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-dim);transition:.3s}
+.chain-node.done .chain-circle{background:var(--ok);border-color:var(--ok);color:#fff}
+.chain-node.active .chain-circle{background:var(--accent);border-color:var(--accent);color:#fff;animation:pulse 1.2s infinite}
+.chain-node.failed .chain-circle{background:var(--err);border-color:var(--err);color:#fff}
+.chain-lbl{font-size:10px;color:var(--text-dim);font-family:var(--mono)}
+.chain-arrow{flex:1;height:2px;background:var(--border);min-width:20px;margin:0 4px;margin-bottom:22px;transition:background .3s}
+.chain-arrow.done{background:var(--ok)}
+.pipe-log{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto}
+.pipe-ev{background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;animation:fade .2s}
+.pipe-ev.STT{border-left-color:var(--accent)}.pipe-ev.PARSE{border-left-color:var(--purple)}.pipe-ev.RESERVE{border-left-color:var(--warn)}.pipe-ev.REJECT{border-left-color:var(--err)}.pipe-ev.DELIVERY{border-left-color:var(--accent)}.pipe-ev.COMPLETE{border-left-color:var(--ok)}
+.pipe-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.pipe-tag{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border)}
+.pipe-time{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.pipe-text{font-size:13px}
+.pipe-details{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin-top:6px}
+.pipe-details .k{color:var(--text-dim);font-family:var(--mono);font-size:12px}
+.pipe-details .v{font-family:var(--mono);font-size:12px}
+.pipe-details .v.ok{color:var(--ok)}.pipe-details .v.err{color:var(--err)}.pipe-details .v.warn{color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--border);font-family:var(--mono)}
+td{padding:10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:var(--surface-2)}
+.badge{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:10px}
+.b-completed{background:rgba(63,185,80,.15);color:var(--ok)}.b-failed{background:rgba(248,81,73,.15);color:var(--err)}.b-pending,.b-queued{background:rgba(210,153,34,.15);color:var(--warn)}.b-active{background:rgba(47,129,247,.15);color:var(--accent)}
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tab{padding:6px 14px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;font-size:13px;color:var(--text-dim);transition:.15s;user-select:none}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.fusebox{display:inline-flex;flex-direction:column;width:52px;border-radius:4px;overflow:hidden;border:1px solid #000;vertical-align:middle;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.fb-cover{height:9px}
+.fb-pcb{background:#2f8f46;display:flex;flex-direction:column;justify-content:center;gap:3px;padding:4px 8px}
+.fb-fuse{height:5px;border-radius:1px;background:rgba(0,0,0,.18);border:1px dashed rgba(255,255,255,.35)}
+.fb-fuse.on{background:#0b0e12;border:1px solid #000;box-shadow:inset 0 0 2px #333}
+.fusebox.sm{width:38px}.fusebox.sm .fb-cover{height:6px}.fusebox.sm .fb-pcb{padding:3px 6px;gap:2px}.fusebox.sm .fb-fuse{height:4px}
+.fusebox.lg{width:72px}.fusebox.lg .fb-cover{height:12px}.fusebox.lg .fb-pcb{padding:6px 11px;gap:4px}.fusebox.lg .fb-fuse{height:7px}
+.inv-section-head{display:flex;align-items:center;gap:10px;padding:8px 0 8px 12px;font-weight:600;border-left:3px solid var(--accent);margin-bottom:12px;margin-top:20px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);font-family:var(--mono)}
+.inv-section-head:first-child{margin-top:0}
+.inv-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:8px}
+.inv-card{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;transition:.2s;cursor:default}
+.inv-card:hover{border-color:var(--accent)}.inv-card.low{border-color:var(--warn);background:rgba(210,153,34,.06)}.inv-card.out{border-color:var(--err);background:rgba(248,81,73,.06)}
+.inv-card-qty{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.inv-card-qty.low{color:var(--warn)}.inv-card-qty.out{color:var(--err)}
+.inv-card-label{font-size:10px;color:var(--text-dim);font-family:var(--mono);line-height:1.5}
+.color-sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.form-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;color:var(--text-dim);font-family:var(--mono)}
+select,input[type=number]{background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:13px;min-width:130px}
+select:focus,input:focus{outline:none;border-color:var(--accent)}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer;font-size:13px;transition:.15s}
+.btn:hover{background:#1f6feb}.btn.ok{background:var(--ok)}.btn.ok:hover{background:#2ea043}
+.preview-fuses{display:flex;align-items:center;gap:12px;margin-top:10px;color:var(--text-dim);font-size:12px}
+.ev-log{display:flex;flex-direction:column;gap:6px;font-family:var(--mono);font-size:12px}
+.ev-line{display:flex;gap:12px;padding:6px 10px;border-radius:6px;background:var(--surface-2);animation:fade .2s;border-left:3px solid transparent}
+.ev-line .t{color:var(--text-dim);white-space:nowrap}
+.ev-line.info{border-left-color:var(--accent)}.ev-line.warning{border-left-color:var(--warn)}.ev-line.error{border-left-color:var(--err)}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--ok);color:#fff;padding:12px 18px;border-radius:8px;font-weight:600;opacity:0;transform:translateY(10px);transition:.25s;z-index:99;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="logo"><div class="logo-dot"></div>SRA · Smart Robot Assistant</div>
+  <div class="conn-bar">
+    <div class="pill"><span class="dot dead" id="c-ws"></span>WebSocket</div>
+    <div class="pill"><span class="dot dead" id="c-db"></span>PostgreSQL</div>
+    <div class="pill"><span class="dot dead" id="c-ros"></span>ROS 2</div>
+    <div class="pill"><span class="dot dead" id="c-llm"></span>Ollama LLM</div>
+    <div class="pill"><span class="dot dead" id="c-ur"></span>UR10e</div>
+    <div class="pill"><span class="dot dead" id="c-bot"></span>Delivery Bot</div>
+  </div>
+  <div id="clock">—</div>
+</header>
+<aside>
+  <div class="nav-item active" data-page="overview"><i class="fa-solid fa-gauge-high"></i>Overview</div>
+  <div class="nav-item" data-page="pipeline"><i class="fa-solid fa-diagram-project"></i>Pipeline IA</div>
+  <div class="nav-item" data-page="stats"><i class="fa-solid fa-chart-column"></i>Estadísticas</div>
+  <div class="nav-item" data-page="tasks"><i class="fa-solid fa-list-check"></i>Tareas</div>
+  <div class="nav-item" data-page="inventory"><i class="fa-solid fa-boxes-stacked"></i>Inventario</div>
+  <div class="nav-item" data-page="events"><i class="fa-solid fa-terminal"></i>Eventos</div>
+  <div class="nav-item" data-page="settings"><i class="fa-solid fa-gear"></i>Configuración</div>
+  <div class="nav-sep">v2.1 · producción</div>
+</aside>
+<main>
+  <section class="page active" id="page-overview">
+    <h2>Panel de Control</h2><div class="subtitle">Estado del sistema en tiempo real</div>
+    <div class="grid g2">
+      <div class="card"><h3>Estado del Sistema</h3>
+        <div class="state-box">
+          <div class="state-badge state-IDLE" id="stateBadge">IDLE</div>
+          <div style="color:var(--text-dim)" id="stateDesc">Esperando comandos del operador</div>
+        </div>
+      </div>
+      <div class="card"><h3>Estado de Robots</h3>
+        <div class="grid" style="gap:12px">
+          <div class="robot" id="robot-ur">
+            <div class="robot-head"><i class="fa-solid fa-robot"></i><span class="robot-name">UR10e Cobot</span><span class="robot-state" id="ur-state">idle</span></div>
+            <div class="robot-detail" id="ur-detail">En posición home · listo</div>
+          </div>
+          <div class="robot" id="robot-bot">
+            <div class="robot-head"><i class="fa-solid fa-truck-fast"></i><span class="robot-name">Delivery Bot</span><span class="robot-state" id="bot-state">standby</span></div>
+            <div class="robot-detail" id="bot-detail">RPi5 + Teensy4 · en estación de carga</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>Línea de Tiempo · Orden Actual</h3><div class="timeline" id="timeline"></div></div>
+  </section>
+  <section class="page" id="page-pipeline">
+    <h2>Pipeline de IA</h2><div class="subtitle">Flujo en tiempo real: transcripción → parseo → reserva → entrega → stock</div>
+    <div class="card"><div class="chain" id="chain"></div></div>
+    <div class="card" style="margin-top:16px"><h3>Registro del Pipeline</h3>
+      <div class="pipe-log" id="pipeLog"><div style="color:var(--text-dim);font-size:12px;text-align:center;padding:20px;font-family:var(--mono)">Esperando eventos del sistema...</div></div>
+    </div>
+  </section>
+  <section class="page" id="page-stats">
+    <h2>Estadísticas</h2><div class="subtitle">Métricas de producción y rendimiento</div>
+    <div class="card"><h3>Resumen de Tareas</h3>
+      <div class="ring-wrap">
+        <div class="ring">
+          <svg width="160" height="160" viewBox="0 0 160 160">
+            <circle cx="80" cy="80" r="66" fill="none" stroke="var(--border)" stroke-width="16"/>
+            <circle id="ringOk"  cx="80" cy="80" r="66" fill="none" stroke="var(--ok)"  stroke-width="16" stroke-linecap="round" stroke-dasharray="0 999"/>
+            <circle id="ringErr" cx="80" cy="80" r="66" fill="none" stroke="var(--err)" stroke-width="16" stroke-linecap="round" stroke-dasharray="0 999"/>
+          </svg>
+          <div class="ring-center"><div class="num" id="ringTotal">0</div><div class="lbl">Total</div></div>
+        </div>
+        <div class="legend">
+          <div class="leg-item"><span class="leg-sw" style="background:var(--ok)"></span>Completadas <strong style="margin-left:6px" id="legOk">0</strong></div>
+          <div class="leg-item"><span class="leg-sw" style="background:var(--err)"></span>Fallidas <strong style="margin-left:6px" id="legErr">0</strong></div>
+          <div class="leg-item"><span class="leg-sw" style="background:var(--border)"></span>Total <strong style="margin-left:6px" id="legTotal">0</strong></div>
+        </div>
+      </div>
+      <div class="stat-grid" style="margin-top:20px">
+        <div class="stat ok"><div class="val" id="stOk">0</div><div class="lbl">Completadas</div></div>
+        <div class="stat err"><div class="val" id="stErr">0</div><div class="lbl">Fallidas</div></div>
+        <div class="stat total"><div class="val" id="stTotal">0</div><div class="lbl">Total</div></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>Cajas Entregadas (últimas 8 horas)</h3><div class="bars" id="bars"></div></div>
+  </section>
+  <section class="page" id="page-tasks">
+    <h2>Tareas</h2><div class="subtitle">Cola y historial de entregas</div>
+    <div class="tabs" id="taskTabs">
+      <div class="tab active" data-f="all">Todas</div>
+      <div class="tab" data-f="completed">Completadas</div>
+      <div class="tab" data-f="failed">Fallidas</div>
+      <div class="tab" data-f="pending">Pendientes</div>
+    </div>
+    <div class="card">
+      <table><thead><tr><th>ID</th><th>Producto</th><th>Cant.</th><th>Destino</th><th>Estado</th><th>Hora</th></tr></thead>
+      <tbody id="taskBody"></tbody></table>
+    </div>
+  </section>
+  <section class="page" id="page-inventory">
+    <h2>Inventario</h2><div class="subtitle">Stock de fusibleras por configuración — 24 variantes</div>
+    <div class="card" style="margin-bottom:16px"><h3>Agregar Stock Manualmente</h3>
+      <div class="form-row">
+        <div class="field"><label>Tapa inferior</label>
+          <select id="addBack"><option value="blue">Azul</option><option value="red">Rojo</option><option value="black">Negro</option></select>
+        </div>
+        <div class="field"><label>Posición de fusibles</label>
+          <select id="addFuses"><option value="none">Sin fusibles</option><option value="upper">Fusible superior</option><option value="lower">Fusible inferior</option><option value="both">Ambos fusibles</option></select>
+        </div>
+        <div class="field"><label>Tapa superior</label>
+          <select id="addTop"><option value="blue">Azul</option><option value="red">Rojo</option></select>
+        </div>
+        <div class="field"><label>Cantidad</label><input type="number" id="addQty" min="1" max="50" value="1" style="max-width:110px"></div>
+        <button class="btn ok" id="addStockBtn"><i class="fa-solid fa-plus"></i> Agregar</button>
+      </div>
+      <div class="preview-fuses">Vista previa: <span id="addPreviewFuses"></span><span id="addPreviewText" style="font-family:var(--mono)"></span></div>
+    </div>
+    <div class="card"><h3>Stock Actual</h3><div id="invBody"></div></div>
+  </section>
+  <section class="page" id="page-events">
+    <h2>Eventos del Sistema</h2><div class="subtitle">Registro cronológico</div>
+    <div class="card"><div class="ev-log" id="evLog"><div style="color:var(--text-dim);font-size:12px;text-align:center;padding:20px;font-family:var(--mono)">Sin eventos aún</div></div></div>
+  </section>
+  <section class="page" id="page-settings">
+    <h2>Configuración</h2><div class="subtitle">Parámetros operativos del sistema</div>
+    <div class="grid g2">
+      <div class="card"><h3>Entregas</h3>
+        <div class="field" style="margin-bottom:14px"><label>Capacidad máxima de entrega (cajas)</label><input type="number" value="6" min="1" disabled></div>
+        <div class="field"><label>Umbral de stock bajo (unidades)</label><input type="number" value="2" min="0" disabled></div>
+        <p style="color:var(--text-dim);font-size:11px;margin-top:12px;font-family:var(--mono)">Modificar en ~/sra_project/.env</p>
+      </div>
+      <div class="card"><h3>Voz / STT</h3>
+        <div class="field" style="margin-bottom:14px"><label>Modelo Whisper activo</label><select disabled><option>small (CPU · int8)</option></select></div>
+        <div class="field"><label>Idioma</label><select disabled><option>es · Español</option></select></div>
+        <p style="color:var(--text-dim);font-size:11px;margin-top:12px;font-family:var(--mono)">Modificar en voice_input.py</p>
+      </div>
+    </div>
+  </section>
+</main>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+'use strict';
+const COLOR_HEX={blue:'#2f81f7',red:'#f85149',black:'#484f58'};
+const COLOR_ES={blue:'Azul',red:'Rojo',black:'Negro'};
+const FUSE_LABELS={none:'Sin fusibles',upper:'Fusible superior',lower:'Fusible inferior',both:'Ambos fusibles'};
+const DEST_ES={station_A:'Estación A',station_B:'Estación B'};
+const LOW_THRESHOLD=2;
+function now(){return new Date().toLocaleTimeString('es-ES',{hour12:false});}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
+function fuseBoxHTML(back,fuseMode,top,size){
+  const uOn=fuseMode==='upper'||fuseMode==='both',lOn=fuseMode==='lower'||fuseMode==='both';
+  const bh=COLOR_HEX[back]||'#484f58',th=COLOR_HEX[top]||'#2f81f7';
+  return `<span class="fusebox ${size||''}" title="Sup:${COLOR_ES[top]||top}·${FUSE_LABELS[fuseMode]||fuseMode}·Inf:${COLOR_ES[back]||back}"><span class="fb-cover" style="background:${th}"></span><span class="fb-pcb"><span class="fb-fuse ${uOn?'on':''}"></span><span class="fb-fuse ${lOn?'on':''}"></span></span><span class="fb-cover" style="background:${bh}"></span></span>`;
+}
+function updateClock(){const d=new Date();document.getElementById('clock').textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');}
+setInterval(updateClock,1000);updateClock();
+document.querySelectorAll('.nav-item').forEach(n=>{n.onclick=()=>{document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));n.classList.add('active');document.getElementById('page-'+n.dataset.page).classList.add('active');};});
+let inventoryData=[],tasksData=[],taskFilter='all',chainState={},tlState={};
+const NOW_H=new Date().getHours();
+const hourLabels=Array.from({length:8},(_,i)=>String((NOW_H-7+i+24)%24).padStart(2,'0'));
+const deliveriesByHour=new Array(8).fill(0);
+function setState(s,desc){const b=document.getElementById('stateBadge');b.className='state-badge state-'+s;b.textContent=s;document.getElementById('stateDesc').textContent=desc||'';}
+const STATE_DESC_ES={IDLE:'Esperando comandos del operador',PARSING:'Interpretando comando (LLM)',RESERVING:'Reservando stock',DELIVERING:'Entrega en curso',COMPLETING:'Finalizando tarea',ERROR:'Error del sistema'};
+function applySystemState(st){if(!st||!st.state)return;const desc=st.error_detail||STATE_DESC_ES[st.state]||'';setState(st.state,desc);}
+function setRobot(which,state,detail,mode){const card=document.getElementById(which==='ur'?'robot-ur':'robot-bot');document.getElementById(which+'-state').textContent=state;document.getElementById(which+'-detail').textContent=detail;card.classList.remove('active','error');if(mode)card.classList.add(mode);}
+const TL_STEPS=[{key:'stt',title:'Transcripción de voz (STT)',icon:'fa-microphone'},{key:'parse',title:'Parseo de comando (LLM)',icon:'fa-brain'},{key:'reserve',title:'Reserva de stock',icon:'fa-lock'},{key:'delivery',title:'Entrega',icon:'fa-truck-fast'},{key:'stock',title:'Actualización de stock',icon:'fa-database'}];
+function renderTimeline(){const el=document.getElementById('timeline');el.innerHTML='';TL_STEPS.forEach((s,i)=>{const st=tlState[s.key]||{},cls=st.status||'',last=i===TL_STEPS.length-1,icon=cls==='done'?'fa-check':cls==='failed'?'fa-xmark':s.icon;el.innerHTML+=`<div class="tl-step ${cls}"><div class="tl-marker"><div class="tl-icon"><i class="fa-solid ${icon}"></i></div>${last?'':'<div class="tl-line"></div>'}</div><div class="tl-body"><div class="tl-title">${s.title}</div><div class="tl-sub">${st.sub||'—'}</div><div class="tl-time">${st.time||''}</div></div></div>`;});}
+renderTimeline();
+const CHAIN=[{k:'stt',l:'STT',i:'fa-microphone'},{k:'parse',l:'PARSE',i:'fa-brain'},{k:'reserve',l:'RESERVE',i:'fa-lock'},{k:'delivery',l:'DELIVERY',i:'fa-truck-fast'},{k:'complete',l:'STOCK',i:'fa-database'}];
+function renderChain(){const el=document.getElementById('chain');el.innerHTML='';CHAIN.forEach((c,i)=>{const cls=chainState[c.k]||'',icon=cls==='done'?'fa-check':cls==='failed'?'fa-xmark':c.i;el.innerHTML+=`<div class="chain-node ${cls}"><div class="chain-circle"><i class="fa-solid ${icon}"></i></div><div class="chain-lbl">${c.l}</div></div>`;if(i<CHAIN.length-1)el.innerHTML+=`<div class="chain-arrow ${cls==='done'?'done':''}"></div>`;});}
+renderChain();
+function resetPipeline(){chainState={};tlState={};renderChain();renderTimeline();}
+function addPipeEvent(step,text,details){const log=document.getElementById('pipeLog');const empty=log.querySelector('[style*="text-align:center"]');if(empty)empty.remove();let rows='';Object.entries(details||{}).forEach(([k,v])=>{let c='';if(/ok|reservado|entregado|completado/i.test(String(v)))c='ok';else if(/rechaz|fallo|error|insuficiente/i.test(String(v)))c='err';else if(/bajo|warn/i.test(String(v)))c='warn';rows+=`<span class="k">${k}</span><span class="v ${c}">${v}</span>`;});const div=document.createElement('div');div.className='pipe-ev '+step;div.innerHTML=`<div class="pipe-head"><span class="pipe-tag">${step}</span><span class="pipe-time">${now()}</span></div><div class="pipe-text">${text}</div>${rows?`<div class="pipe-details">${rows}</div>`:''}`;log.insertBefore(div,log.firstChild);while(log.children.length>40)log.removeChild(log.lastChild);}
+function addEventLog(level,message,ts){const el=document.getElementById('evLog');const empty=el.querySelector('[style*="text-align:center"]');if(empty)empty.remove();const line=document.createElement('div');line.className='ev-line '+(level||'info');const t=ts?new Date(ts).toLocaleTimeString('es-ES',{hour12:false}):now();line.innerHTML=`<span class="t">${t}</span><span>${message}</span>`;el.insertBefore(line,el.firstChild);while(el.children.length>60)el.removeChild(el.lastChild);}
+function renderInventory(items){inventoryData=items;const el=document.getElementById('invBody');el.innerHTML='';const groups={blue:[],red:[],black:[]};items.forEach(i=>{if(groups[i.back_color])groups[i.back_color].push(i);});Object.entries(groups).forEach(([back,list])=>{el.innerHTML+=`<div class="inv-section-head"><span class="color-sw" style="background:${COLOR_HEX[back]}"></span>Tapa inferior: ${COLOR_ES[back]}</div>`;let grid='<div class="inv-card-grid">';list.forEach(item=>{const qty=item.quantity,cls=qty===0?'out':qty<=LOW_THRESHOLD?'low':'',qtyCls=qty===0?'out':qty<=LOW_THRESHOLD?'low':'',badge=qty===0?'<span class="badge b-failed">agotado</span>':qty<=LOW_THRESHOLD?'<span class="badge b-pending">bajo</span>':'<span class="badge b-completed">ok</span>';grid+=`<div class="inv-card ${cls}" data-config="${item.config_code}">${fuseBoxHTML(item.back_color,item.fuse_position,item.front_color,'lg')}<div class="inv-card-qty ${qtyCls}">${qty}</div><div class="inv-card-label">Sup: <strong style="color:${COLOR_HEX[item.front_color]}">${COLOR_ES[item.front_color]}</strong><br>${FUSE_LABELS[item.fuse_position]||item.fuse_position}</div>${badge}</div>`;});el.innerHTML+=grid+'</div>';});}
+function renderStats(s){const ok=s.completed||0,err=s.failed||0,total=s.total||0;['stOk','legOk'].forEach(id=>document.getElementById(id).textContent=ok);['stErr','legErr'].forEach(id=>document.getElementById(id).textContent=err);['stTotal','legTotal','ringTotal'].forEach(id=>document.getElementById(id).textContent=total);const C=2*Math.PI*66,done=ok+err,okLen=done?(ok/done)*C:0,errLen=done?(err/done)*C:0;document.getElementById('ringOk').setAttribute('stroke-dasharray',`${okLen} ${C-okLen}`);document.getElementById('ringErr').setAttribute('stroke-dasharray',`${errLen} ${C-errLen}`);document.getElementById('ringErr').setAttribute('stroke-dashoffset',`${-okLen}`);}
+function renderBars(){const el=document.getElementById('bars');el.innerHTML='';const max=Math.max(...deliveriesByHour,1);deliveriesByHour.forEach((v,i)=>{el.innerHTML+=`<div class="bar-col"><div class="bar-val">${v}</div><div class="bar" style="height:${(v/max)*100}%"></div><div class="bar-lbl">${hourLabels[i]}h</div></div>`;});}
+renderBars();
+document.querySelectorAll('#taskTabs .tab').forEach(t=>{t.onclick=()=>{document.querySelectorAll('#taskTabs .tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');taskFilter=t.dataset.f;renderTasks();};});
+function renderTasks(items){if(items)tasksData=items;const body=document.getElementById('taskBody');body.innerHTML='';const filtered=tasksData.filter(t=>taskFilter==='all'||t.status===taskFilter||(taskFilter==='pending'&&['pending','queued','in_progress'].includes(t.status)));if(!filtered.length){body.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">Sin tareas</td></tr>';return;}filtered.forEach(t=>{const p=(t.config_code||'').split('-'),back=p[0]||'black',top=p[1]||'blue',fuse=p[2]||'none',time=t.completed_at?new Date(t.completed_at).toLocaleTimeString('es-ES',{hour12:false}):t.requested_at?new Date(t.requested_at).toLocaleTimeString('es-ES',{hour12:false}):'—';body.innerHTML+=`<tr><td style="font-family:var(--mono)">#${t.id}</td><td style="display:flex;align-items:center;gap:10px">${fuseBoxHTML(back,fuse,top,'sm')}<span>${COLOR_ES[back]||back} / ${FUSE_LABELS[fuse]||fuse} / ${COLOR_ES[top]||top}</span></td><td>${t.quantity}</td><td>${DEST_ES[t.destination]||t.destination||'—'}</td><td><span class="badge b-${t.status}">${t.status}</span></td><td style="font-family:var(--mono);font-size:12px">${time}</td></tr>`;});}
+function prependTask(task){tasksData.unshift({id:task.task_id||task.id,config_code:task.config_code,quantity:task.quantity,destination:task.destination,status:task.status,requested_at:null,completed_at:task.timestamp||new Date().toISOString()});if(tasksData.length>50)tasksData.pop();renderTasks();}
+function updatePreview(){const b=document.getElementById('addBack').value,fm=document.getElementById('addFuses').value,t=document.getElementById('addTop').value;document.getElementById('addPreviewFuses').innerHTML=fuseBoxHTML(b,fm,t,'lg');document.getElementById('addPreviewText').textContent=`${COLOR_ES[b]} · ${FUSE_LABELS[fm]} · ${COLOR_ES[t]}`;}
+['addBack','addFuses','addTop'].forEach(id=>document.getElementById(id).addEventListener('change',updatePreview));
+updatePreview();
+document.getElementById('addStockBtn').onclick=async()=>{const back=document.getElementById('addBack').value,fm=document.getElementById('addFuses').value,front=document.getElementById('addTop').value,qty=Math.max(1,parseInt(document.getElementById('addQty').value)||1),code=`${back}-${front}-${fm}`;try{const resp=await fetch('/api/add_stock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config_code:code,quantity:qty})});if(!resp.ok)throw new Error(`HTTP ${resp.status}`);toast(`+${qty} agregado a ${code}`);addEventLog('info',`Stock manual: +${qty} × ${code}`);const inv=await fetch('/api/inventory').then(r=>r.json());renderInventory(inv);}catch(err){toast('Error: '+err.message);console.error(err);}};
+function handleMessage(msg){switch(msg.type){
+  case 'init':if(msg.inventory)renderInventory(msg.inventory);if(msg.tasks)renderTasks(msg.tasks);if(msg.stats)renderStats(msg.stats);if(msg.system_state)applySystemState(msg.system_state);setDot('c-ws','live');setDot('c-db','live');setDot('c-ros','live');setDot('c-llm','live');addEventLog('info','Panel conectado · datos cargados');break;
+  case 'system_state':applySystemState(msg);break;
+  case 'alert':{const level=msg.level||'info',text=msg.message||'';addEventLog(level,text,msg.timestamp);if(/reserv|cola|queue|despach/i.test(text)){chainState.reserve='done';tlState.reserve={status:'done',sub:text,time:now()};renderChain();renderTimeline();addPipeEvent('RESERVE',text,{resultado:'reservado'});}else if(/insuficiente|insufficient/i.test(text)&&level==='warning'){chainState.reserve='failed';chainState.delivery='failed';chainState.complete='failed';tlState.reserve={status:'failed',sub:text,time:now()};renderChain();renderTimeline();addPipeEvent('REJECT',text,{resultado:'rechazado'});}else if(/camino|departing/i.test(text)){addPipeEvent('DELIVERY',text,{});}else if(/completad|finished/i.test(text)&&level==='info'){addPipeEvent('COMPLETE',text,{resultado:'completado'});}break;}
+  case 'task_active':resetPipeline();chainState.stt='done';tlState.stt={status:'done',sub:'Transcripción completada',time:now()};chainState.parse='done';tlState.parse={status:'done',sub:`→ ${msg.config_code}`,time:now()};chainState.reserve='done';tlState.reserve={status:'done',sub:'Stock reservado',time:now()};chainState.delivery='active';tlState.delivery={status:'active',sub:`${msg.quantity}× ${msg.config_code} → ${DEST_ES[msg.destination]||msg.destination}`,time:now()};setRobot('ur','picking',`Preparando ${msg.quantity}× ${msg.config_code}`,'active');setRobot('bot','en ruta',`${msg.quantity} pieza(s) → ${DEST_ES[msg.destination]||msg.destination}`,'active');renderChain();renderTimeline();addPipeEvent('DELIVERY',`Tarea #${msg.task_id} iniciada`,{piezas:msg.quantity,destino:DEST_ES[msg.destination]||msg.destination});break;
+  case 'task_status':{const st=msg.status;if(st==='completed'){chainState.delivery='done';if(tlState.delivery)tlState.delivery.status='done';chainState.complete='done';tlState.stock={status:'done',sub:'Stock actualizado',time:now()};setRobot('ur','idle','En posición home · listo');setRobot('bot','standby','Regresando a estación de carga');renderChain();renderTimeline();}else if(st==='failed'){chainState.delivery='failed';setRobot('ur','error','Revisar estado del cobot');setRobot('bot','error','Revisar estado del delivery bot','error');renderChain();renderTimeline();}break;}
+  case 'task_completed':prependTask(msg);fetch('/api/inventory').then(r=>r.json()).then(renderInventory).catch(()=>{});fetch('/api/stats').then(r=>r.json()).then(s=>{renderStats(s);deliveriesByHour[deliveriesByHour.length-1]+=(msg.quantity||1);renderBars();}).catch(()=>{});addPipeEvent('COMPLETE',`Tarea #${msg.task_id} completada`,{piezas:msg.quantity,destino:DEST_ES[msg.destination]||msg.destination,resultado:'completado'});toast(`✓ Tarea #${msg.task_id} entregada`);break;
+  case 'inventory_update':{
+    // A single card quantity changed — update without full re-render
+    const card=document.querySelector(`[data-config="${msg.config_code}"]`);
+    if(card){
+      const qty=msg.quantity,cls=qty===0?'out':qty<=LOW_THRESHOLD?'low':'';
+      card.className='inv-card '+cls;
+      const qEl=card.querySelector('.inv-card-qty');if(qEl){qEl.className='inv-card-qty '+cls;qEl.textContent=qty;}
+      const bEl=card.querySelector('.badge');if(bEl){bEl.className='badge '+(qty===0?'b-failed':qty<=LOW_THRESHOLD?'b-pending':'b-completed');bEl.textContent=qty===0?'agotado':qty<=LOW_THRESHOLD?'bajo':'ok';}
+    }
+    break;
+  }
+  case 'ping':break;
+}}
+function setDot(id,cls){const e=document.getElementById(id);if(e)e.className='dot '+cls;}
+function setAllDots(cls){['c-ws','c-db','c-ros','c-llm','c-ur','c-bot'].forEach(id=>setDot(id,cls));}
+let ws=null;
+function connect(){const proto=location.protocol==='https:'?'wss':'ws';ws=new WebSocket(`${proto}://${location.host}/ws`);ws.onopen=()=>{setDot('c-ws','live');addEventLog('info','WebSocket conectado');};ws.onclose=()=>{setAllDots('dead');addEventLog('warning','WebSocket desconectado · reconectando en 3s...');setState('DESCONECTADO','Conexión perdida con el servidor');setTimeout(connect,3000);};ws.onerror=()=>ws.close();ws.onmessage=e=>{try{handleMessage(JSON.parse(e.data));}catch(ex){console.error(ex);};};}
+connect();
+</script>
+</body>
+</html>
