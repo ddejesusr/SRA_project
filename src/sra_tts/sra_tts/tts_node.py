@@ -18,12 +18,10 @@ import threading
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
 from std_msgs.msg import Bool, String
 
 VOICES_DIR = os.getenv("SRA_PIPER_VOICES_DIR", "")
 ES_MODEL   = os.getenv("SRA_PIPER_ES_MODEL", "es_ES-sharvard-medium.onnx")
-#EN_MODEL   = os.getenv("SRA_PIPER_EN_MODEL", "en_US-lessac-medium.onnx")
 
 
 class TTSNode(Node):
@@ -31,23 +29,19 @@ class TTSNode(Node):
     def __init__(self):
         super().__init__("sra_tts_node")
 
-        self.speak_queue: "queue.Queue[tuple[str, str]]" = queue.Queue()
+        self.speak_queue: "queue.Queue[str]" = queue.Queue()
 
         self.create_subscription(
             String, "/sra/tts/speak", self.on_speak, 10
         )
 
+        self.speaking_pub = self.create_publisher(Bool,"/sra/tts/speaking",10,)
+        
         self.worker = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker.start()
 
         self.get_logger().info(
             f"TTS node ready. Voices dir: {VOICES_DIR}"
-        )
-
-        self.speaking_pub = self.create_publisher(
-            Bool,
-            "/sra/tts/speaking",
-            10,
         )
 
     # ----
@@ -57,23 +51,23 @@ class TTSNode(Node):
     def on_speak(self, msg: String):
         text = msg.data.strip()
         if text:
-            self.speak_queue.put((text, "es"))
+            self.speak_queue.put(text)
 
     # ----
     # Worker thread — does the actual synthesis + playback
     # ----
 
     def _worker_loop(self):
-        while rclpy.ok():
+        while rclpy.ok():     # type: ignore[attr-defined]
             try:
-                text, lang = self.speak_queue.get(timeout=1.0)
+                text = self.speak_queue.get(timeout=1.0)
             except queue.Empty:
                 continue
-            self._speak(text, lang)
 
-    def _speak(self, text: str, lang: str):
-        model_name = EN_MODEL if lang == "en" else ES_MODEL
-        model_path = os.path.join(VOICES_DIR, model_name)
+            self._speak(text)
+
+    def _speak(self, text: str):
+        model_path = os.path.join(VOICES_DIR, ES_MODEL)
 
         if not os.path.exists(model_path):
             self.get_logger().error(f"Piper model not found: {model_path}")
@@ -91,7 +85,7 @@ class TTSNode(Node):
                 capture_output=True,
                 timeout=15,
             )
-            
+
             self._publish_speaking(True)
             try:
                 subprocess.run(
