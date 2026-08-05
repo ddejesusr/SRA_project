@@ -12,13 +12,14 @@ import os
 import tempfile
 import threading
 import wave
+import time
 
 import pyaudio
 import rclpy
 import webrtcvad
 from faster_whisper import WhisperModel
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 
 
 # --- Audio capture settings ---
@@ -84,6 +85,15 @@ class VoiceInputNode(Node):
         self.command_pub = self.create_publisher(
             String,
             "/sra/operator/raw_command",
+            10,
+        )
+        self.tts_speaking = False
+        self.tts_guard_until = 0.0
+
+        self.create_subscription(
+            Bool,
+            "/sra/tts/speaking",
+            self.on_tts_speaking,
             10,
         )
 
@@ -158,6 +168,18 @@ class VoiceInputNode(Node):
                     is_speech = self.vad.is_speech(raw_frame, SAMPLE_RATE)
                 except Exception:
                     is_speech = False
+
+                # Never allow the robot's own speech to start or contaminate
+                # an operator utterance.
+                if (self.tts_speaking or time.monotonic() < self.tts_guard_until):
+                    pre_buffer.clear()
+                    utterance_frames = []
+                    triggered = False
+                    silent_count = 0
+                    voiced_count = 0
+                    last_voiced_frame_index = -1
+                    speech_start_count = 0
+                    continue
 
                 if not triggered:
                     # Preserve a short pre-roll so the first syllable is not lost.
@@ -320,6 +342,27 @@ class VoiceInputNode(Node):
         finally:
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
+
+    def on_tts_speaking(self, msg: Bool) -> None:
+        """
+        Suppress microphone-triggered commands while the system is speaking.
+
+        A short trailing guard remains active after playback ends to cover
+        speaker buffering and room reverberation.
+        """
+        self.tts_speaking = bool(msg.data)
+
+        if self.tts_speaking:
+            self.tts_guard_until = 0.0
+            self.get_logger().debug(
+                "TTS playback started — microphone trigger suppressed."
+            )
+        else:
+            self.tts_guard_until = time.monotonic() + 1.0
+            self.get_logger().debug(
+                "TTS playback ended — microphone guard remains active "
+                "for 1.0 second."
+            )
 
     def destroy_node(self):
         self.running = False

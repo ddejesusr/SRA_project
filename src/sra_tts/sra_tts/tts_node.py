@@ -19,6 +19,7 @@ import threading
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from std_msgs.msg import Bool, String
 
 VOICES_DIR = os.getenv("SRA_PIPER_VOICES_DIR", "")
 ES_MODEL   = os.getenv("SRA_PIPER_ES_MODEL", "es_ES-sharvard-medium.onnx")
@@ -41,6 +42,12 @@ class TTSNode(Node):
 
         self.get_logger().info(
             f"TTS node ready. Voices dir: {VOICES_DIR}"
+        )
+
+        self.speaking_pub = self.create_publisher(
+            Bool,
+            "/sra/tts/speaking",
+            10,
         )
 
     # ----
@@ -84,11 +91,16 @@ class TTSNode(Node):
                 capture_output=True,
                 timeout=15,
             )
-            subprocess.run(
-                ["aplay", "-q", wav_path],
-                check=True,
-                timeout=15,
-            )
+            
+            self._publish_speaking(True)
+            try:
+                subprocess.run(
+                    ["aplay", wav_path],
+                    check=True,
+                )
+            finally:
+                self._publish_speaking(False)
+
         except subprocess.CalledProcessError as exc:
             self.get_logger().error(f"Piper/aplay failed: {exc}")
         except subprocess.TimeoutExpired:
@@ -97,7 +109,12 @@ class TTSNode(Node):
             if os.path.exists(wav_path):
                 os.remove(wav_path)
 
-
+    def _publish_speaking(self, speaking: bool) -> None:
+        """Publish the current speaker playback state."""
+        msg = Bool()
+        msg.data = speaking
+        self.speaking_pub.publish(msg)
+        
 def main(args=None):
     rclpy.init(args=args)
     node = TTSNode()

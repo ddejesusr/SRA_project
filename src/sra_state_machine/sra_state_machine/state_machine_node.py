@@ -47,7 +47,13 @@ class StateMachineNode(Node):
         self.destination     = None
         self.error_detail     = None
 
+        # The current timer object is retained so it can be cancelled when the
+        # system changes state or a delivery heartbeat refreshes the watchdog.
         self.timeout_timer = None
+
+        # A monotonically increasing token makes callbacks from superseded timers
+        # harmless if they execute after cancellation.
+        self.timeout_generation = 0
 
         # --- Publisher ---
         self.state_pub = self.create_publisher(String, "/sra/system/state", 10)
@@ -106,30 +112,73 @@ class StateMachineNode(Node):
 
         timeout = TIMEOUTS.get(new_state)
         if timeout is not None:
-            self.timeout_timer = self.create_timer(timeout, self._on_timeout)
+            self._arm_timeout(timeout)
 
-    def _on_timeout(self):
+    def _arm_timeout(self, timeout_seconds: float) -> None:
+        """
+        Arm a timeout watchdog for the current state.
+
+        Each timer receives a unique generation number. If an old callback
+        executes after its timer was cancelled, the generation check in
+        _on_timeout() prevents it from affecting the state machine.
+        """
+        self.timeout_generation += 1
+        generation = self.timeout_generation
+
+        self.timeout_timer = self.create_timer(
+            timeout_seconds,
+            lambda: self._on_timeout(generation),
+        )
+
+    def _on_timeout(self, generation: int) -> None:
+        """
+        Handle a timeout only if it belongs to the currently active timer.
+        """
+        if generation != self.timeout_generation:
+            self.get_logger().debug(
+                f"Ignoring stale timeout callback "
+                f"(generation={generation}, "
+                f"current={self.timeout_generation})."
+            )
+            return
+
+        # The timer is a repeating rclpy timer. Cancel it immediately so
+        # this timeout cannot fire again while the transition is processed.
+        self._cancel_timeout()
+
         if self.state == "RECOVERING":
-            self.get_logger().info("Recovery complete — transitioning to IDLE.")
+            self.get_logger().info(
+                "Recovery complete — transitioning to IDLE."
+            )
             self.transition("IDLE")
         else:
-            self.get_logger().warn(f"Timeout in state {self.state} — Triggering AUTO-STOP.")
-            
-            # Broadcast stop signal so task_manager releases DB reservations
+            timed_out_state = self.state
+            self.get_logger().warn(
+                f"Timeout in state {timed_out_state} — Triggering AUTO-STOP."
+            )
+
             stop_msg = String()
             stop_msg.data = json.dumps({
                 "source": "system_timeout",
-                "state": self.state,
+                "state": timed_out_state,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
             self.stop_pub.publish(stop_msg)
-            self.transition("ERROR", error_detail=f"Timeout in {self.state}")
 
-    def _cancel_timeout(self):
+            self.transition(
+                "ERROR",
+                error_detail=f"Timeout in {timed_out_state}",
+            )
+
+    def _cancel_timeout(self) -> None:
+        """
+        Invalidate the current timeout generation and cancel its timer.
+        """
+        self.timeout_generation += 1
+
         if self.timeout_timer is not None:
             self.timeout_timer.cancel()
             self.timeout_timer = None
-
     def publish_state(self):
         payload = {
             "state":          self.state,
@@ -249,12 +298,11 @@ class StateMachineNode(Node):
         elif new_status == "rejected":
             self.transition("ERROR", error_detail="Executor rejected task while busy")
         elif new_status in ("accepted", "in_progress"):
-            # Heartbeat received — executor is alive and working.
-            # Reset the no-news watchdog without changing state.
+            # The executor is alive. Replace the current no-news watchdog
+            # with a fresh timer for the current DELIVERING state.
             self._cancel_timeout()
-            self.timeout_timer = self.create_timer(
-                TIMEOUTS["DELIVERING"], self._on_timeout
-            )
+            self._arm_timeout(TIMEOUTS["DELIVERING"])
+
             self.get_logger().info(
                 f"Heartbeat '{new_status}' for task "
                 f"{status.get('task_id')} — DELIVERING timeout reset."

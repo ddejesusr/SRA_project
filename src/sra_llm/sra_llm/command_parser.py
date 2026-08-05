@@ -173,14 +173,11 @@ class CommandParserNode(Node):
 
         # ── Subscriptions ────────────────────────────────────────────────
         self.create_subscription(
-            String, "/sra/system/state",        self._state_callback,   10
-        )
+            String, "/sra/system/state",        self._state_callback,   10)
         self.create_subscription(
-            String, "/sra/operator/raw_command", self._command_callback, 10
-        )
+            String, "/sra/operator/raw_command", self._command_callback, 10)
         self.create_subscription(
-            String, "/sra/operator/stop_request", self.stop_request_callback, 10
-)
+            String, "/sra/operator/stop_request", self.stop_request_callback, 10)
 
         # ── Publishers ───────────────────────────────────────────────────
         self.pub_command = self.create_publisher(String, "/sra/ai/command",    10)
@@ -192,6 +189,7 @@ class CommandParserNode(Node):
         self.get_logger().info(
             f"Agent ready. Model: {self.model}  MaxQty: {self.max_quantity}"
         )
+        
 
     # -----------------------------------------------------------------------
     # Subscription callbacks
