@@ -29,8 +29,7 @@ TIMEOUTS = {
     "LISTENING":  30.0,
     "PARSING":    60.0,
     "RESERVING":  20.0,
-    #"DELIVERING": 120.0,
-    "DELIVERING": 8.0,
+    "DELIVERING": 120.0,
     "COMPLETING": 20.0,
     "RECOVERING": 3.0,
 }
@@ -184,13 +183,13 @@ class StateMachineNode(Node):
                     destination=command.get("destination"),
                 )
     def on_emergency_stop(self, msg: String) -> None:
-        """
-        Emergency stop signal. Transitions to ERROR from ANY state.
-        No gate — this is the authoritative stop handler.
-        """
-        self.get_logger().warn(
-            f"EMERGENCY STOP received in state {self.state} — forcing ERROR."
-        )
+        """Emergency stop signal. Valid from every non-ERROR state."""
+        if self.state == "ERROR":
+            self.get_logger().debug("Emergency stop received while already in ERROR — ignoring.")
+            return
+
+        self.get_logger().warn(f"EMERGENCY STOP received in state {self.state} — moving to ERROR.")
+        
         self.transition("ERROR", error_detail="Parada de emergencia activada.")
 
     def on_recover(self, msg: String) -> None:

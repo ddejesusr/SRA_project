@@ -208,12 +208,12 @@ class CommandParserNode(Node):
     def _command_callback(self, msg: String) -> None:
         """
         Main entry point:
-          1. Behavioral gate — reject if not IDLE (fail-open if state unknown).
-          2. Build live DB context block.
-          3. Call LLM with injected context.
-          4. Route result by intent.
+        1. Behavioral gate — reject if not IDLE (fail-open if state unknown).
+        2. Build live DB context block.
+        3. Call LLM with injected context.
+        4. Validate delivery fields and confidence before routing.
+        5. Publish the effective parse result so the state machine can exit PARSING.
         """
-
         # ── 1. Behavioral gate ────────────────────────────────────────────
         if self.current_state is not None and self.current_state != "IDLE":
             self.get_logger().warn(
@@ -232,67 +232,86 @@ class CommandParserNode(Node):
 
         # ── 2. Build context → call LLM ──────────────────────────────────
         context_block = self._build_context_block()
-        result        = self._call_llm(raw_text, context_block)
+        result = self._call_llm(raw_text, context_block)
 
-        intent        = result.get("intent",   "unknown")
-        response_text = result.get("response", "")
-        error         = result.get("error")
+        # effective_result is the authoritative outcome of this parse.
+        # For a delivery, it becomes the validation result, which may contain
+        # an error even when the original LLM response did not.
+        effective_result = result
+        intent = result.get("intent", "unknown")
 
-        # Fallback spoken response if LLM returned no response field
+        if intent == "delivery" and not result.get("error"):
+            effective_result = self._validate_delivery(result)
+
+        effective_intent = effective_result.get("intent", intent)
+        error = effective_result.get("error")
+        response_text = effective_result.get("response", "")
+
+        # A rejected delivery must not speak the LLM's original confirmation.
+        if effective_intent == "delivery" and error:
+            response_text = (
+                "No entendí bien el comando. "
+                "Por favor repita la orden con más claridad."
+            )
+
+        # Fallback spoken response if no response is available.
         if not response_text:
             response_text = (
-                f"Error del sistema: {error}" if error
+                f"Error del sistema: {error}"
+                if error
                 else "No pude procesar el comando."
             )
 
-        # ── 3. Always speak the response ─────────────────────────────────
+        # ── 3. Speak exactly one final, authoritative response ───────────
         self._publish_tts(response_text)
 
-        # ── 4. Route by intent ────────────────────────────────────────────
-        if intent == "delivery" and not error:
-            validated = self._validate_delivery(result)
-            if validated.get("error"):
-                err_msg = validated["error"]
-                self.get_logger().warn(f"Delivery validation failed: {err_msg}")
-                # Delivery-specific rejection — speak it so operator can retry
-                self._publish_tts("No entendí bien el comando. Por favor repita la orden con más claridad.")      
-                
-                #self._publish_tts(f"Comando de entrega inválido: {err_msg}")
-                self._publish_alert("warning", err_msg)
-            else:
-                out = String()
-                out.data = json.dumps(validated, ensure_ascii=False)
-                self.pub_command.publish(out)
-                self.get_logger().info(
-                    f"Delivery → {validated['config_code']} "
-                    f"×{validated['quantity']} → {validated['destination']}"
-                )
+        # ── 4. Route the effective result ─────────────────────────────────
+        if effective_intent == "delivery" and not error:
+            out = String()
+            out.data = json.dumps(effective_result, ensure_ascii=False)
+            self.pub_command.publish(out)
 
-        elif intent == "stop":
+            self.get_logger().info(
+                f"Delivery → {effective_result['config_code']} "
+                f"×{effective_result['quantity']} → "
+                f"{effective_result['destination']}"
+            )
+
+        elif effective_intent == "delivery" and error:
+            self.get_logger().warn(f"Delivery validation failed: {error}")
+            self._publish_alert("warning", error)
+
+        elif effective_intent == "stop":
             stop_msg = String()
             stop_msg.data = json.dumps({
-                "source":    "voice",
+                "source": "voice",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
             self.stop_pub.publish(stop_msg)
-            self._publish_alert("error", "EMERGENCY STOP REQUESTED BY VOICE COMMAND")
+            self._publish_alert(
+                "error",
+                "EMERGENCY STOP REQUESTED BY VOICE COMMAND",
+            )
 
-        elif intent in ("query", "status"):
-            self.get_logger().info(f"Intent={intent} — response sent to TTS.")
+        elif effective_intent in ("query", "status"):
+            self.get_logger().info(
+                f"Intent={effective_intent} — response sent to TTS."
+            )
 
         else:
-            # unknown intent or top-level LLM error
-            self.get_logger().warn(f"Unknown/error: {error or 'no error detail'}")
+            self.get_logger().warn(
+                f"Unknown/error: {error or 'no error detail'}"
+            )
             if error:
                 self._publish_alert("warning", error)
-                
-        # Always notify the state machine that parsing is complete,
-        # regardless of intent. This is the only exit from PARSING state.
+
+        # This message is the authoritative completion result for PARSING.
+        # It must use effective_result, not the raw LLM result.
         result_msg = String()
         result_msg.data = json.dumps({
-            "intent":     intent,
-            "error":      result.get("error"),
-            "confidence": result.get("confidence", 0.0),
+            "intent": effective_intent,
+            "error": error,
+            "confidence": effective_result.get("confidence", 0.0),
         })
         self.parse_result_pub.publish(result_msg)
 
